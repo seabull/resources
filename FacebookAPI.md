@@ -14,5 +14,26 @@ Facebook API Marketing Notes
 
 ![fb_Ad_placement](/Users/z013lgl/sandbox/github/seabull/resources/assets/fb_Ad_placement.png)
 
+- **Attribution**: attribution is your ability to attribute a conversion to your ad. it represents causality
+  between your ad and a response, such as a purchase. By gathering conversion events and proper attribution, you can see the path to conversion by constructing all the attribution points that lead up
+  to a conversion. This is a great way to understand where and how to best invest on ads.
+- **Signals**: The foundation for all measurement solutions is data input; the results you get are only as good as the data input into a solution. We call these data inputs **signals**.The Facebook tools you can use to get
+  signals are *App Events*, *Facebook Pixel* and *offline conversions*.  
+- **App Events**: To measure mobile app ad performance, you can either implement server-to-server calls or include the Facebook SDK and App Events in your   mobile app 
+- **Facebook Pixel**: On desktop or mobile web, you use the **Facebook Pixel** to collect conversion data
+- **Offline Conversions**: The **Offline conversions** API enables you to track and optimize for transactions that happen off your website or mobile app.This includes in stores, through call-centers, post payment methods, bank-transfers, and more. The Offline Conversion API is available only when you use Optimized Cost Per Mille bidding, known as oCPM, for your ads. 
+- **Ads Pacing**: The goal of ads pacing is to evenly deliver ad impressions over a day.
+- **Creative**: Ad creative defines all the assets and content which people see when your ad is shown. This includes images, text, and videos.
 
+- The major types of ad formats for **direct response** on Facebook are **carousel**, **link**, and **video** ads.
+
+### Some useful URLs:
+
+- [Marketing API SDKs](http://fb.me/sdks)
+- [Sample Code Library](http://fb.me/samples)
+- [Graph API Explorer](http://fb.me/explorer)
+- [Access Token Debugger](http://fb.me/access)
+- [Facebook Pixel Helper](http://fb.me/pixelhelp)
+- [Webhook/Dynamic Ad debugger](http://fb.me/dadebug)
+- [Dynamic Ads](http://fb.me/dynads)
 
