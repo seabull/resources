@@ -1,3 +1,37 @@
+### Packaging 
+
+- [pyspark production best practices](https://developerzen.com/best-practices-writing-production-grade-pyspark-jobs-cb688ac4d20f)
+
+  - ``` bash
+    spark-submit --py-files pyfile.py,zipfile.zip main.py --arg1 val1
+    ```
+
+    ``` python
+    # main.py
+    import sys
+    sys.path.insert(0, jobs.zip)
+    from jobs.wordcount import run_job
+    run_job()
+    ```
+
+    ``` python
+    # another version of main.py
+    import pyspark
+    if os.path.exists('jobs.zip'):
+        sys.path.insert(0, 'jobs.zip')
+    else:
+        sys.path.insert(0, './jobs')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--job', type=str, required=True)
+    parser.add_argument('--job-args', nargs='*')
+    args = parser.parse_args()
+    sc = pyspark.SparkContext(appName=args.job_name)
+    job_module = importlib.import_module('jobs.%s' % args.job)
+    job_module.analyze(sc, job_args)
+    ```
+
+  - [boilerplate project](https://github.com/ekampf/PySpark-Boilerplate)
+
 ### Data frame
 
 - Dataframe Methods
@@ -40,6 +74,8 @@ hint(name, *parameters)
 intersect(other)
 isLocal()
 join(other, on=None, how=None)
+	#on – a string for the join column name, a list of column names, a join expression (Column), or a list of Columns. If on is a string or a list of strings indicating the name of the join column(s), the column(s) must exist on both sides, and this performs an equi-join
+    #how=Must be one of: inner, cross, outer, full, full_outer, left, left_outer, right, right_outer, left_semi, and left_anti.
 limit(num)
 localCheckpoint(eager=True)
 persist(storageLevel=StorageLevel(True, True, False, False, 1))
@@ -381,6 +417,17 @@ withWatermark(eventTime, delayThreshold)
     
     ```
 
+- `pyspark.sql.GroupedData`(*jgd*, *df*)
 
-
+``` python
+agg(*exprs) - Compute aggregates and returns the result as a DataFrame
+apply(udf) - Maps each group of the current DataFrame using a pandas udf and returns the result as a DataFrame.
+avg(*cols) - Computes average values for each numeric columns for each group.
+count() - 
+max(*cols) - 
+mean(*cols) - alias of avg()
+min(*cols) - 
+pivot(pivot_col, values=None) - Pivots a column of the current DataFrame and perform the specified aggregation. There are two versions of pivot function: one that requires the caller to specify the list of distinct values to pivot on, and one that does not. The latter is more concise but less efficient, because Spark needs to first compute the list of distinct values internally.
+sum(*cols) - 
+```
 
