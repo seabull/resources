@@ -32,6 +32,45 @@
 
   - [boilerplate project](https://github.com/ekampf/PySpark-Boilerplate)
 
+### Optimization and Tuning
+
+- Broadcast Joins aka Map-side Joins
+
+  - Spark SQL supports **broadcast hints** using [broadcast standard function](https://jaceklaskowski.gitbooks.io/mastering-spark-sql/spark-sql-hint-framework.html#broadcast-function) or [SQL comments](https://jaceklaskowski.gitbooks.io/mastering-spark-sql/spark-sql-hint-framework.html#sql-hints):
+
+    - `SELECT /*+ MAPJOIN(b) */ …`
+    - `SELECT /*+ BROADCASTJOIN(b) */ …`
+    - `SELECT /*+ BROADCAST(b) */ …`
+
+  - [JoinSelection](https://jaceklaskowski.gitbooks.io/mastering-spark-sql/spark-sql-SparkStrategy-JoinSelection.html) execution planning strategy uses [spark.sql.autoBroadcastJoinThreshold](https://jaceklaskowski.gitbooks.io/mastering-spark-sql/spark-sql-properties.html#spark.sql.autoBroadcastJoinThreshold) property (default: `10M`) to control the size of a dataset before broadcasting it to all worker nodes when performing a join
+
+    ```python
+    threshold =  spark.conf.get("spark.sql.autoBroadcastJoinThreshold")
+    ```
+
+  - [spark profiling tools](https://github.com/LucaCanali/Miscellaneous/blob/master/Spark_Notes/Tools_Spark_Linux_FlameGraph.md)
+
+  - Some background on Spark EventLog/applicationHistory files
+
+    - The Spark driver logs into job workload/perf metrics in the spark.evenLog.dir directory as JSON files.
+
+    - There is one file per application, the file names contains the application id (therefore including a timestamp) application_1502789566015_17671.
+
+    - While the application is running the file as a suffix .inprogress, the suffix is removed if the application gracefully stops. This means that the .inprogress suffix can stick to the file in certains cases, such as driver crashes.
+
+    - Typically these files are read with the Web UI and the history server.
+
+    - EventLog JSON files can also be read directly.
+
+    - Spark Event Log records info on processed jobs/stages/tasks. See details at [<https://spark.apache.org/docs/latest/monitoring.html>]
+      This feature is activated and configured with spark config options. This is an example:
+
+      ```
+      spark.eventLog.enabled=true
+      spark.eventLog.dir=hdfs:///user/spark/applicationHistory
+      ```
+
+
 ### Data frame
 
 - Dataframe Methods
