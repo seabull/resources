@@ -73,6 +73,34 @@
 
 ### Data frame
 
+- transform
+
+  Implementation (patch class by adding a new method):
+
+  ```python
+  # patch class by adding a method
+  from pyspark.sql.dataframe import DataFrame
+  
+  def transform(self, f):
+      return f(self)
+  
+  DataFrame.transform = transform
+  
+  # patch object by adding a method
+  import types
+  
+  df = DataFrame()
+  df.transform  = types.MethodType(df, transform)
+  ```
+
+  Usage:
+
+  ```python
+  spark.range(1).transform(lambda df: df.selectExpr("id * 2"))
+  ```
+
+- [Pyspark Efficient UDF](https://www.inovex.de/blog/efficient-udafs-with-pyspark/)
+
 - Dataframe Methods
 
 ```python
