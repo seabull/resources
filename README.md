@@ -104,6 +104,10 @@
 
 - [pytest folder structure](https://blog.ionelmc.ro/2014/05/25/python-packaging/#the-structure)
 
+- [Python Tutor visualize](http://pythontutor.com/visualize.html#mode=edit)
+
+- [pytest monkeypatching](https://www.patricksoftwareblog.com/monkeypatching-with-pytest/)
+
 - [Python run-time method patching](https://tryolabs.com/blog/2013/07/05/run-time-method-patching-python/)
 
 - [Python and postgres](https://hakibenita.com/fast-load-data-python-postgresql)
@@ -138,6 +142,8 @@
   - [Packaging](http://alexanderwaldin.github.io/packaging-python-project.html)
 
   - [PEP440 versions](https://medium.com/@vladyslav.krylasov/implement-versioning-of-python-projects-according-to-pep-440-af952199eb30)
+  
+  - [python load into posgresql](https://hakibenita.com/fast-load-data-python-postgresql)
 
 ### Functional Programming
 
@@ -342,6 +348,7 @@
 ### Java
 
 - [String and StringBuffer concat out of memory](https://www.captaincasademo.com/forum/posts/list/1503.page)
+- [Java Memory Model and Garbage Collection](https://dzone.com/articles/understanding-the-java-memory-model-and-the-garbag)
 
 ### Architecture
 
