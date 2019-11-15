@@ -167,8 +167,10 @@
 
 - [spark tuning tips](https://spark.apache.org/docs/latest/tuning.html)
 
-  - [configuration properties](https://spark.apache.org/docs/latest/configuration.html)
+  - [Spark Perf Tuning Checklist](https://zerogravitylabs.ca/spark-performance-tuning-checklist/)
 
+  - [configuration properties](https://spark.apache.org/docs/latest/configuration.html)
+  
   - ``` bash
     spark-submit --master yarn --deploy-mode cluster 
     --executor-cores 3 
@@ -194,11 +196,11 @@
     --conf spark.history.fs.cleaner.enabled=true 
     --conf spark.history.fs.cleaner.maxAge=2d 
     --class "$APPCLASS" "$APPFILE" >> "/var/log/${APPCLASS}.log" 2>&1
-    
+  
     ```
 
   - some config
-
+  
   - ``` python
     spark=SparkSession.builder.master('yarn').appName('tga-dfa-adhoc')\
         .enableHiveSupport()\
@@ -215,9 +217,9 @@
         .config("spark.executor.memory", '20g')\
         .config("spark.executor.memoryOverhead", "10g")\
         .config("spark.sql.hive.thriftServer.singleSession", "true")\
-        .getOrCreate()
+      .getOrCreate()
     ```
-
+  
   - ``` python
     # useful to debug and find the source file name
     df = df.withColumn("fname", input_file_name())

@@ -1,0 +1,39 @@
+version: 1
+objects:
+  queue:
+    class: queue.Queue
+    maxsize: 1000
+formatters:
+  simple:
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: DEBUG
+    formatter: simple
+    stream: ext://sys.stdout
+  file:
+    class: logging.FileHandler
+    filename: 'config_example2.log'
+    formatter: simple
+  queue_listener:
+    class: log_config.handlers.QueueListenerHandler
+    handlers:
+      - cfg://handlers.console
+      - cfg://handlers.file
+    queue: cfg://objects.queue
+loggers:
+  my_script1:
+    level: DEBUG
+    handlers:
+      - queue_listener
+    propagate: false
+  my_script2:
+    level: WARNING
+    handlers:
+      - queue_listener
+    propagate: false
+root:
+  level: WARN
+  handlers:
+    - console

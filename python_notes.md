@@ -8,7 +8,7 @@
 
 ### Sequences
 
-- From Fluent Python
+- From Fluent Python, [*Fluent Python* code repository](https://github.com/fluentpython/example-code)
 
 - Container sequences
 
@@ -131,6 +131,18 @@ tuple`, `str`, and `bytes
 
   - A search like `k in my_dict.keys()` is efficient in Python 3 even for very large mappings because `dict.keys()` returns a view, which is similar to a set, and containment checks in sets are as fast as in dictionaries. Details are documented in [the “Dictionary” view objects section of the documentation](http://bit.ly/1Vm7E4q). In Python 2, `dict.keys()` returns a `list`, so our solution also works there, but it is not efficient for large dictionaries, because `k in my_list` must scan the list.
 
+  - Build dict
+
+  - ```python
+    >>> a = dict(one=1, two=2, three=3)
+    >>> b = {'one': 1, 'two': 2, 'three': 3}
+    >>> c = dict(zip(['one', 'two', 'three'], [1, 2, 3]))
+    >>> d = dict([('two', 2), ('one', 1), ('three', 3)])
+    >>> e = dict({'three': 3, 'one': 1, 'two': 2})
+    >>> a == b == c == d == e
+    True
+    ```
+
   - dict comprehensions
 
     - ```python
@@ -247,7 +259,9 @@ tuple`, `str`, and `bytes
 
   - If the list will only contain numbers, an `array.array` is more efficient than a `list`: it supports all mutable sequence operations (including `.pop`, `.insert`, and `.extend`), and additional methods for fast loading and saving such as `.frombytes` and `.tofile`.
 
-- 
+- Set
+
+  - Set elements must be hashable. The `set` type is not hashable, but `frozenset` is, so you can have `frozenset` elements inside a `set`.
 
 ### Pytest
 
@@ -380,3 +394,35 @@ def test_get_response_failure(monkeypatch):
 ```
 
 This test function is similar to the success case, except it is now returning a status code of 404 (Internal Server Error) to test that the negative path in ‘example2()’ works as expected.
+
+- [Mock](https://codefellows.github.io/sea-python-401d7/lectures/mock.html)
+
+  - MagicMock and Faking Object
+
+  - ```python
+    def some_view(request):
+        if request.method == "GET":
+            return {}
+        if request.method == "POST":
+            new_entry = Entry(
+                title = request.POST['title'],
+                body = request.POST['body']
+            )
+            request.dbsession.add(new_entry)
+            return HTTPFound(request.route_url('entry_list'))
+    ```
+
+    ```python
+    def test_some_view_get_req_returns_dict(mocker):
+        from views import some_view
+        req = mocker.MagicMock()
+        req.method = 'GET'
+        assert some_view(req) == {}
+    def test_some_view_post_returns_redirect(mocker):
+        from views import some_view
+        req = mocker.MagicMock()
+        req.method = 'POST'
+        req.POST = {'title': 'some title', 'body': 'some body text'}
+        req.dbsession.add = lambda arg: None
+        assert isinstance(some_view(req), HTTPFound)
+    ```
