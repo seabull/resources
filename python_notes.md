@@ -120,7 +120,13 @@ tuple`, `str`, and `bytes
 
     - Building List of lists
 
-    - 
+    - https://stackoverflow.com/questions/2970608/what-are-named-tuples-in-python
+
+- Arrays
+
+  - If the list will only contain numbers, an `array.array` is more efficient than a `list`: it supports all mutable sequence operations (including `.pop`, `.insert`, and `.extend`), and additional methods for fast loading and saving such as `.frombytes` and `.tofile`.
+
+  - 
 
 - Dictionaries and Sets
 
@@ -168,7 +174,7 @@ tuple`, `str`, and `bytes
       {1: 'UNITED STATES', 55: 'BRAZIL', 62: 'INDONESIA', 7: 'RUSSIA'}
       ```
 
-  - Handling missing keys with setdefault
+  - ##### Handling missing keys with **setdefault**
 
     - Every Pythonista knows that `d.get(k, default)` is an alternative to `d[k]` whenever a default value is more convenient than handling `KeyError`. However, when updating the value found (if it is mutable), using either `__getitem__` or `get` is awkward and inefficient
 
@@ -253,15 +259,58 @@ tuple`, `str`, and `bytes
 
         In `StrKeyDict0`, we had to code our own `get` to obtain results consistent with `__getitem__`, but in `StrKeyDict` we inherited `Mapping.get`, which is implemented exactly like `StrKeyDict0.get` (see [Python source code](http://bit.ly/1FEOPPB)).
 
-  - 
+  - KEYS MUST BE HASHABLE OBJECTS
 
-- Arrays
+    An object is hashable if all of these requirements are met:
 
-  - If the list will only contain numbers, an `array.array` is more efficient than a `list`: it supports all mutable sequence operations (including `.pop`, `.insert`, and `.extend`), and additional methods for fast loading and saving such as `.frombytes` and `.tofile`.
+    1. It supports the `hash()` function via a `__hash__()` method that always returns the same value over the lifetime of the object.
+    2. It supports equality via an `__eq__()` method.
+    3. If `a == b` is `True` then `hash(a) == hash(b)` must also be `True`.
+
+  - If you implement a class with a custom `__eq__` method, and you want the instances to be hashable, you must also implement a suitable `__hash__`, to make sure that when `a == b` is `True` then `hash(a) == hash(b)` is also `True`. Otherwise you are breaking an invariant of the hash table algorithm, with the grave consequence that dicts and sets will not handle your objects reliably. On the other hand, if a class has a custom `__eq$__` that depends on mutable state, its instances are not hashable and you must never implement a `__hash__` method in such a class.
+
+  - DICTS HAVE SIGNIFICANT MEMORY OVERHEAD
 
 - Set
 
-  - Set elements must be hashable. The `set` type is not hashable, but `frozenset` is, so you can have `frozenset` elements inside a `set`.
+  - Set elements must be **hashable**. The `set` type is not hashable, but `frozenset` is, so you can have `frozenset` elements inside a `set`.
+  - In addition to guaranteeing uniqueness, the set types implement the essential set operations as infix operators, so, given two sets `a` and `b`, `a | b` returns their union, `a & b` computes the intersection, and `a - b` the difference. Smart use of set operations can reduce both the line count and the runtime of Python programs, at the same time making code easier to read and reason about—by removing loops and lots of conditional logic.
+  - Set literals: The syntax of `set` literals—`{1}`, `{1, 2}`, etc.—looks exactly like the math notation, with one important exception: there’s no literal notation for the empty `set`, so we must remember to write `set()`.
+
+- Functions and Objects
+
+  - Lambdas: rarely useful in Python
+
+  - ##### LUNDH’S LAMBDA REFACTORING RECIPE
+
+    If you find a piece of code hard to understand because of a `lambda`, Fredrik Lundh suggests this refactoring procedure:
+
+    1. Write a comment explaining what the heck that `lambda` does.
+    2. Study the comment for a while, and think of a name that captures the essence of the comment.
+    3. Convert the `lambda` to a `def` statement, using that name.
+    4. Remove the comment.
+
+    These steps are quoted from the [Functional Programming HOWTO](http://docs.python.org/3/howto/functional.html), a must read.
+
+
+
+### Async and Threading
+
+- https://pybay.com/site_media/slides/raymond2017-keynote/index.html
+
+- Threading
+
+  - In this version, you’re creating a `ThreadPoolExecutor`, which seems like a complicated thing. Let’s break that down: `ThreadPoolExecutor` = `Thread` + `Pool` + `Executor`.
+
+    You already know about the `Thread` part. That’s just a train of thought we mentioned earlier. The `Pool` portion is where it starts to get interesting. This object is going to create a pool of threads, each of which can run concurrently. Finally, the `Executor` is the part that’s going to control how and when each of the threads in the pool will run. It will execute the request in the pool.
+
+    Helpfully, the standard library implements `ThreadPoolExecutor` as a context manager so you can use the `with` syntax to manage creating and freeing the pool of `Threads`.
+
+    Once you have a `ThreadPoolExecutor`, you can use its handy `.map()` method. This method runs the passed-in function on each of the sites in the list. The great part is that it automatically runs them concurrently using the pool of threads it is managing.
+
+    Those of you coming from other languages, or even Python 2, are probably wondering where the usual objects and functions are that manage the details you’re used to when dealing with `threading`, things like `Thread.start()`, `Thread.join()`, and `Queue`.
+
+    These are all still there, and you can use them to achieve fine-grained control of how your threads are run. But, starting with Python 3.2, the standard library added a higher-level abstraction called `Executors` that manage many of the details for you if you don’t need that fine-grained control.
 
 ### Pytest
 
