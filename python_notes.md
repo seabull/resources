@@ -475,3 +475,9 @@ This test function is similar to the success case, except it is now returning a 
         req.dbsession.add = lambda arg: None
         assert isinstance(some_view(req), HTTPFound)
     ```
+
+### Misc
+
+- [Run Shell commands from Python](https://janakiev.com/blog/python-shell-commands/)
+- [asyncio stream stin and stdout](https://kevinmccarthy.org/2016/07/25/streaming-subprocess-stdin-and-stdout-with-asyncio-in-python/)
+

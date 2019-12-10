@@ -3,11 +3,19 @@ import time
 import platform
 import asyncio
 import subprocess
+from collections import namedtuple
+import requests
+import json
+
 from pprint import pprint
 import logging
+import os
+from typing import List, Dict
+
+CommandResult = namedtuple("CommandResult", "cmd returncode output")
 
 
-async def run_command(*args):
+async def run_command(*args) -> CommandResult:
     """Run command in subprocess.
 
     Example from:
@@ -18,25 +26,27 @@ async def run_command(*args):
                                                    stdout=asyncio.subprocess.PIPE,
                                                    stderr=asyncio.subprocess.PIPE)
 
-    logging.info(f"Started: {args}, pid={process.pid}", flush=True)
+    logging.info(f"Started: {args}, pid={process.pid}")   # , flush=True)
 
     # Wait for the subprocess to finish
     stdout, stderr = await process.communicate()
 
     # Progress
     if process.returncode == 0:
-        logging.info(f"Done: {args}, pid={process.pid}, result: {stdout.decode().strip()}", flush=True)
+        logging.info(f"Done: {args}, pid={process.pid}, result: {stdout.decode().strip()}")   # , flush=True)
+        result = CommandResult(cmd=str(args), returncode=process.returncode, output=stdout.decode().strip())
     else:
-        logging.error(f"Failed: {args}, pid={process.pid}, result: {stderr.decode().strip()}", flush=True)
+        logging.error(f"Failed: {args}, pid={process.pid}, result: {stderr.decode().strip()}")   # , flush=True)
+        result = CommandResult(cmd=str(args), returncode=process.returncode, output=stderr.decode().strip())
 
     # Result
-    result = stdout.decode().strip()
+    # result = stdout.decode().strip()
 
     # Return stdout
     return result
 
 
-async def run_command_shell(command):
+async def run_command_shell(command: str) -> CommandResult:
     """Run command in subprocess (shell).
 
     Note:
@@ -49,19 +59,21 @@ async def run_command_shell(command):
                                                     stderr=asyncio.subprocess.PIPE)
 
     # Status
-    logging.info(f"Started:{command}, (pid = {str(process.pid)})", flush=True)
+    logging.info(f"Started:{command}, (pid = {str(process.pid)})")   # , flush=True)
 
     # Wait for the subprocess to finish
     stdout, stderr = await process.communicate()
 
     # Progress
     if process.returncode == 0:
-        logging.info(f"Done:{command}, pid = {str(process.pid)}", flush=True)
+        logging.info(f"Done:{command}, pid = {str(process.pid)}")   # , flush=True)
+        result = CommandResult(cmd=command, returncode=process.returncode, output=stdout.decode().strip())
     else:
-        logging.error(f"Failed:{command}, pid = {str(process.pid)}", flush=True)
+        logging.error(f"Failed:{command}, pid = {str(process.pid)}")   # , flush=True)
+        result = CommandResult(cmd=command, returncode=process.returncode, output=stderr.decode().strip())
 
     # Result
-    result = stdout.decode().strip()
+    # result = stdout.decode().strip()
 
     # Return stdout
     return result
@@ -70,9 +82,9 @@ async def run_command_shell(command):
 def run_command_shell_sync(command):
     completed_process = subprocess.run(command, capture_output=True, shell=True)
     if completed_process.returncode == 0:
-        result = completed_process.stdout
+        result = CommandResult(cmd=command, returncode=completed_process.returncode, output=completed_process.stdout)
     else:
-        result = completed_process.stderr
+        result = CommandResult(cmd=command, returncode=completed_process.returncode, output=completed_process.stderr)
 
     return result
 
@@ -87,7 +99,8 @@ def make_chunks(l, n):
     for i in range(0, len(l), n):
         yield l[i : i + n]
 
-def run_asyncio_commands(commands, max_concurrent_tasks=0):
+
+def run_asyncio_commands(commands: List[str], max_concurrent_tasks: int=0) -> List[CommandResult]:
     """Run tasks asynchronously using asyncio and return results.
 
     If max_concurrent_tasks are set to 0, no limit is applied.
@@ -114,11 +127,11 @@ def run_asyncio_commands(commands, max_concurrent_tasks=0):
     loop = asyncio.get_event_loop()
 
     for chunk, tasks_in_chunk in enumerate(chunks):
-        logging.debug(f"Beginning work on chunk {chunk}/{num_chunks}", flush=True)
+        logging.debug(f"Beginning work on chunk {chunk}/{num_chunks}")   # , flush=True)
         commands = asyncio.gather(*tasks_in_chunk)  # Unpack list using *
         results = loop.run_until_complete(commands)
         consolidated_results += results
-        logging.debug(f"Completed work on chunk {chunk}/{num_chunks}", flush=True)
+        logging.debug(f"Completed work on chunk {chunk}/{num_chunks}")   # , flush=True)
 
     loop.close()
     return consolidated_results
@@ -144,18 +157,76 @@ def get_info() -> None:
         "hdfs dfs -ls /apps/hive/warehouse/prd_roundel_fnd.db/campaign_report_performance | tail -1",
     )
     start = time.perf_counter()
-    results = run_asyncio_commands(shell_commands, max_concurrent_tasks=5)
+    results = run_asyncio_commands([
+        f"hdfs dfs -ls {data_loc} | tail -1" for _, data_loc in get_table_location(get_tables("prd_roundel_fnd"))
+    ], max_concurrent_tasks=5)
     end = time.perf_counter()
-    # pprint(results)
     logging.info(f"Asyncio Time Taken: {round(end - start, 4):.4f}")
     print(f"Asyncio Time Taken: {round(end - start, 4):.4f}")
 
-    start = time.perf_counter()
-    results_sync = run_commands(shell_commands)
-    end = time.perf_counter()
-    # pprint(results_sync)
-    logging.info(f"synch Time Taken: {round(end - start, 4):.4f}")
-    print(f"Synch Time Taken: {round(end - start, 4):.4f}")
+    # Send to Slack
+    pprint(results)
+
+    # start = time.perf_counter()
+    # results_sync = run_commands(shell_commands)
+    # end = time.perf_counter()
+    # # pprint(results_sync)
+    # logging.info(f"synch Time Taken: {round(end - start, 4):.4f}")
+    # print(f"Synch Time Taken: {round(end - start, 4):.4f}")
+
+
+def command_results_to_json(cmd_results: List[CommandResult]) -> str:
+    # TODO: convert to __str__
+    for cmd, rc, output in cmd_results:
+        if str(output).strip() == '':
+            # skip
+            pass
+
+
+def get_tables(dbname: str):
+            # """hive -e "use {dbname}; show tables;" """)
+    completed_process = subprocess.run(f"""
+        hive -e "use {dbname}; show tables;"
+        """, capture_output=True, shell=True)
+    if completed_process.returncode == 0:
+        result = completed_process.stdout.decode().strip().split(os.linesep)
+    else:
+        logging.error(f"ERROR getting tables {completed_process}")
+        result = []
+
+    return (f"{dbname}.{tbl}" for tbl in result)
+
+
+def get_table_location(tables: List[str]):
+    table_name, hdfs_location, load_freq = None, None, None
+    import re
+    ddl_location_re = r"CREATE\s+[EXTERNAL]\s+TABLE\s+`(\w+.\w+)`.+LOCATION\s*[\n]\s*[']([\w/:.]+)[']"
+                      # r".*TBLPROPERTIES.+'LOAD_FREQUENCY'\s*='(\w+)'.+"
+    ddl_location_freq = re.compile(ddl_location_re, re.DOTALL | re.MULTILINE)
+    commands = [f"""hive -e "show create table {tbl};" """ for tbl in tables]
+    ddl_strings = run_asyncio_commands(commands=commands, max_concurrent_tasks=min(len(tables), 10))
+    for cmd, rc, ddl in ddl_strings:
+        matched = ddl_location_freq.match(ddl)
+        if matched:
+            # pprint(matched.groups())
+            # table_name, hdfs_location, load_freq = matched.groups()
+            table_name, hdfs_location = matched.groups()
+        else:
+            print("Not matched!")
+        yield table_name, hdfs_location
+
+
+def send_slack(json_data: Dict, webhook: str) -> int:
+    # print(json.dumps(json_data))
+    rtn = 200
+    resp = requests.post(url=webhook,
+                  data=json.dumps(json_data),
+                  headers={'Content-Type': "application/json"})
+    if resp.status_code != 200:
+        logging.error(f"Error sending message to slack: {json_data}")
+        logging.error(f"{resp}")
+        rtn = resp.status_code
+    return rtn
 
 
 def run_asyncio_tasks(tasks, max_concurrent_tasks=0):
