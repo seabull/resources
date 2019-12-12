@@ -22,14 +22,20 @@ def test_make_chunks(lst, chunk_size, expected):
     assert result is not None
     assert result == expected
 
-# @pytest.mark.parametrize("command, expected",
-#                          [
-#                              ("ls table_meta_info_report.py", "table_meta_info_report.py"),
-#                              ("uname", "Darwin"),
-#                          ])
-# def test_run_command_shell(command: str, expected: str):
-#     result = table_meta_info_report.run_command_shell(command=command)
-#     assert result == expected
+
+@pytest.mark.parametrize("command, expected",
+                         [
+                             ("ls table_meta_info_report.py", table_meta_info_report.CommandResult(cmd="ls table_meta_info_report.py",
+                                                                                                   returncode=0,
+                                                                                                   output="table_meta_info_report.py")),
+                             ("uname", table_meta_info_report.CommandResult(cmd="uname",
+                                                                            returncode=0,
+                                                                            output="Darwin")),
+                         ])
+@pytest.mark.asyncio
+async def test_run_command_shell(command: str, expected: str):
+    result = await table_meta_info_report.run_command_shell(command=command)
+    assert result == expected
 
 
 @pytest.mark.parametrize("commands, max_concurrency, expected", [
