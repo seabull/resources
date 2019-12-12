@@ -1,10 +1,11 @@
 import pytest
 import table_meta_info_report
 
+
 @pytest.fixture(scope="session")
 def webhook():
     with open("webhook.txt", "r") as f:
-        webhook = f.readline()
+        webhook = f.readline().strip()
     return webhook
 
 
