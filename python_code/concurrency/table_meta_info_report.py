@@ -3,7 +3,7 @@ import time
 # import platform
 import asyncio
 import subprocess
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 import requests
 import json
 import argparse
@@ -12,7 +12,7 @@ import re
 # from pprint import pprint
 import logging
 import os
-from typing import List, Dict
+from typing import List, Dict, DefaultDict
 
 for f in os.listdir(os.path.dirname(os.path.abspath(__file__))):
     if os.path.isfile(f) and (f.endswith(".egg") or f.endswith(".zip")):
@@ -271,13 +271,13 @@ def send_slack(json_data: Dict, webhook: str) -> int:
     return rtn
 
 
-def add_done_file_info(table_list: List[Dict]) -> List[Dict]:
-    done_file = {}
+def done_commands_from_table(table_list: List[Dict], done_file_mapping: Dict = None) -> List[str]:
     commands = []
     for tbl in table_list:
-        if tbl is not None and tbl.get("table_name", None) is not None and tbl.get("max_partition", None) is not None:
+        table_name = tbl.get("table_name", None)
+        if tbl is not None and table_name is not None and tbl.get("max_partition", None) is not None:
             # find done files
-            done_file[tbl["table_name"]] = None
+            # done_file[tbl["table_name"]] = None
             part = tbl["max_partition"]
             if '-' in part:
                 part = part.replace('-', '/')
@@ -289,25 +289,78 @@ def add_done_file_info(table_list: List[Dict]) -> List[Dict]:
                     part = '/'.join(matched.groups())
                 else:
                     logging.warning(f"Unknown partition value format {part}, SKIP")
-        commands.append(f"""hdfs dfs -ls /common/MMA/data/ready/{DB_NAME}/{part}/{tbl["table_name"]}*""")
+            if done_file_mapping is not None and done_file_mapping.get(table_name, None) is not None:
+                logging.debug(f"mapping found {table_name} : {done_file_mapping[table_name]}")
+                table_name = done_file_mapping[table_name]
+            else:
+                logging.debug(f"No mappings!!! {done_file_mapping}")
+            commands.append(f"""hdfs dfs -ls /common/MMA/data/ready/{DB_NAME}/{part}/{table_name}*""")
+        else:
+            logging.warning(f"Table name or max partition is None!")
+    return commands
 
-    done_file_results = run_asyncio_commands(commands=commands, max_concurrent_tasks=MAX_CONCURRENCY)
 
-    for cmd, rc, output in done_file_results:
+def extract_done_flag(done_file_cmd_results: List[CommandResult]) -> DefaultDict:
+    # Use defaultdict to avoid missing key exception
+    done_file = defaultdict(lambda: "Not Exist")
+
+    for cmd, rc, output in done_file_cmd_results:
         logging.debug(f"Done file checking output: {output}")
-        if output is not None and str(output).strip() != "":
+
+        if cmd is not None and cmd.strip() != "" and output is not None and output.strip() != "":
             tbl_name = cmd.split('/')[-1][:-1]
             if "No such file" in output:
                 logging.warning(f"Done file not found: {output}")
                 done_file[tbl_name] = "Not Exist"
+            elif f"{tbl_name}" in output:
+                done_file[tbl_name] = output.strip().split('/')[-1]
             else:
-                done_file[tbl_name] = output.split('/')[-1]
+                logging.warning(f"Unknown done file command output string {output}")
+                done_file[tbl_name] = output.strip()
         else:
             logging.warning(f"No output from {cmd}")
-    for tbl in table_list:
-        tbl["done_flag"] = done_file[tbl["table_name"]]
+    return done_file
 
-    return table_list
+
+# def add_done_file_info(table_list: List[Dict]) -> List[Dict]:
+#     # done_file = {}
+#     # commands = []
+#     # for tbl in table_list:
+#     #     if tbl is not None and tbl.get("table_name", None) is not None and tbl.get("max_partition", None) is not None:
+#     #         # find done files
+#     #         done_file[tbl["table_name"]] = None
+#     #         part = tbl["max_partition"]
+#     #         if '-' in part:
+#     #             part = part.replace('-', '/')
+#     #             # print(f"{part}")
+#     #         else:
+#     #             matched = re.match(part, '([1-9][0-9]{3})([01][0-9])([0-3][0-9])')
+#     #             if matched:
+#     #                 logging.warning(f"Partition value format change: {part}")
+#     #                 part = '/'.join(matched.groups())
+#     #             else:
+#     #                 logging.warning(f"Unknown partition value format {part}, SKIP")
+#     #     commands.append(f"""hdfs dfs -ls /common/MMA/data/ready/{DB_NAME}/{part}/{tbl["table_name"]}*""")
+#
+#     commands = done_commands_from_table(table_list=table_list)
+#     done_file_results = run_asyncio_commands(commands=commands, max_concurrent_tasks=MAX_CONCURRENCY)
+#
+#     done_file = extract_done_flag(done_file_results)
+#     # for cmd, rc, output in done_file_results:
+#     #     logging.debug(f"Done file checking output: {output}")
+#     #     if output is not None and str(output).strip() != "":
+#     #         tbl_name = cmd.split('/')[-1][:-1]
+#     #         if "No such file" in output:
+#     #             logging.warning(f"Done file not found: {output}")
+#     #             done_file[tbl_name] = "Not Exist"
+#     #         else:
+#     #             done_file[tbl_name] = output.split('/')[-1]
+#     #     else:
+#     #         logging.warning(f"No output from {cmd}")
+#     for tbl in table_list:
+#         tbl["done_flag"] = done_file[tbl["table_name"]]
+#
+#     return table_list
 
 
 def main() -> None:
@@ -380,7 +433,18 @@ def main() -> None:
     # pprint(results)
     table_info = extract_info_from_results(cmd_results=results)
 
-    table_info["table_info"] = add_done_file_info(table_list=table_info["table_info"])
+    # table_info["table_info"] = add_done_file_info(table_list=table_info["table_info"])
+    commands = done_commands_from_table(table_list=table_info["table_info"],
+                                        done_file_mapping={
+                                            "campaign_guest_line_performance": "campaign_report_performance",
+                                            "campaign_line_performance": "campaign_report_performance"
+                                        })
+    done_file_results = run_asyncio_commands(commands=commands, max_concurrent_tasks=MAX_CONCURRENCY)
+
+    done_file = extract_done_flag(done_file_results)
+    for tbl in table_info["table_info"]:
+        tbl["done_flag"] = done_file[tbl["table_name"]]
+
     # from pprint import pprint
     # pprint(table_info)
 

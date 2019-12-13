@@ -93,10 +93,38 @@ def test_get_table_location():
     pass
 
 
-def test_add_done_file_info():
-    pass
+@pytest.mark.parametrize("tables, done_file_mapping, expected_commands", [
+    ([{"table_name": "tableA", "max_partition": '2019-12-02'}], None,
+     ["hdfs dfs -ls /common/MMA/data/ready/prd_roundel_fnd/2019/12/02/tableA*"]),
+
+    ([{"table_name": "tableA", "max_partition": '2019-12-02'}, {"table_name": "tableB", "max_partition": '2020-01-02'}],
+     None,
+     ["hdfs dfs -ls /common/MMA/data/ready/prd_roundel_fnd/2019/12/02/tableA*",
+      "hdfs dfs -ls /common/MMA/data/ready/prd_roundel_fnd/2020/01/02/tableB*"]),
+
+    ([{"table_name": "table1", "max_partition": '2019-12-02'}, {"table_name": "table2", "max_partition": '2020-01-02'}],
+     {"table1": "table2"},
+     ["hdfs dfs -ls /common/MMA/data/ready/prd_roundel_fnd/2019/12/02/table2*",
+      "hdfs dfs -ls /common/MMA/data/ready/prd_roundel_fnd/2020/01/02/table2*"]),
+
+    ([], None,
+     []),
+])
+def test_done_commands_from_table(tables, done_file_mapping, expected_commands):
+    commands = table_meta_info_report.done_commands_from_table(table_list=tables, done_file_mapping=done_file_mapping)
+    assert commands == expected_commands
 
 
+@pytest.mark.parametrize("cmd_results, expected_flags", [
+    ([table_meta_info_report.CommandResult(cmd="", returncode=0, output="")],
+    []
+    )
+])
+def test_extract_done_flag(cmd_results, expected_flags):
+    flags = table_meta_info_report.extract_done_flag(cmd_results)
+
+
+pytest.mark.slack
 def test_send_slack(webhook):
     txt = table_meta_info_report.format_table_info({'table_info':
                           [
