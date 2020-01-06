@@ -12,7 +12,7 @@ import re
 # from pprint import pprint
 import logging
 import os
-from typing import List, Dict, DefaultDict
+from typing import List, Dict, DefaultDict, Pattern, Generator
 
 for f in os.listdir(os.path.dirname(os.path.abspath(__file__))):
     if os.path.isfile(f) and (f.endswith(".egg") or f.endswith(".zip")):
@@ -20,6 +20,9 @@ for f in os.listdir(os.path.dirname(os.path.abspath(__file__))):
         sys.path.insert(0, f)
 
 CommandResult = namedtuple("CommandResult", "cmd returncode output")
+TableMeta = namedtuple("TableMeta", "name location load_frequency")
+DDL_META_RE = r"CREATE\s+(?:EXTERNAL\s)*TABLE\s+[`]?(\w+.\w+)[`]?.+LOCATION\s*[\n]\s*[']([\w/:.]+)[']"
+DDL_META_PATTERN = re.compile(DDL_META_RE, re.DOTALL | re.MULTILINE)
 
 DB_NAME = "prd_roundel_fnd"
 MAX_CONCURRENCY=10
@@ -39,6 +42,9 @@ TABLE_LIST = (
     f"{DB_NAME}.campaign_guest_line_performance",
     f"{DB_NAME}.campaign_line_performance",
     f"{DB_NAME}.campaign_report_performance",
+    f"{DB_NAME}.campaign_guest_line_performance_ss",
+    f"{DB_NAME}.campaign_line_performance_ss",
+    f"{DB_NAME}.campaign_report_performance_ss",
     f"{DB_NAME}.exception_table",
     f"{DB_NAME}.guest_behavior",
     f"{DB_NAME}.guest_features_global",
@@ -46,7 +52,8 @@ TABLE_LIST = (
     f"{DB_NAME}.guest_features_item_final", f"{DB_NAME}.guest_spend",
     f"{DB_NAME}.lift_metrics", f"{DB_NAME}.lift_metrics_ss",
     f"{DB_NAME}.sf_reporting_insights",
-    f"{DB_NAME}.whitewalker_test_control_final"
+    f"{DB_NAME}.whitewalker_test_control_final",
+    f"{DB_NAME}.whitewalker_test_control_final_ss"
 )
 
 
@@ -125,6 +132,10 @@ async def run_command_shell(command: str) -> CommandResult:
 
     # Return stdout
     return result
+
+
+async def get_location_from_ddl(ddl: str) -> str:
+    pass
 
 
 def make_chunks(l, n):
@@ -236,26 +247,53 @@ def get_all_tables(dbname: str):
     return [f"{dbname}.{tbl}" for tbl in result]
 
 
-def get_table_location(tables: List[str]):
-    table_name, hdfs_location, load_freq = None, None, None
-    # import re
-    ddl_location_re = r"CREATE\s+(?:EXTERNAL\s)*TABLE\s+`(\w+.\w+)`.+LOCATION\s*[\n]\s*[']([\w/:.]+)[']"
-    # r".*TBLPROPERTIES.+'LOAD_FREQUENCY'\s*='(\w+)'.+"
-    ddl_location_freq = re.compile(ddl_location_re, re.DOTALL | re.MULTILINE)
-    commands = [f"""hive -e "show create table {tbl};" """ for tbl in tables]
-    ddl_strings = run_asyncio_commands(commands=commands,
-                                       max_concurrent_tasks=min(
-                                           len(tables), 10))
-    for cmd, rc, ddl in ddl_strings:
-        matched = ddl_location_freq.match(ddl)
-        if matched:
-            # pprint(matched.groups())
-            # table_name, hdfs_location, load_freq = matched.groups()
-            table_name, hdfs_location = matched.groups()
-        else:
-            print(f"Not matched! {cmd}")
-            logging.warning(f"Not matched! {cmd}")
-        yield table_name, hdfs_location
+# def get_table_location(tables: List[str]) -> Generator:
+#     table_name, hdfs_location, load_freq = None, None, None
+#     # import re
+#     # ddl_location_re = r"CREATE\s+(?:EXTERNAL\s)*TABLE\s+`(\w+.\w+)`.+LOCATION\s*[\n]\s*[']([\w/:.]+)[']"
+#     # r".*TBLPROPERTIES.+'LOAD_FREQUENCY'\s*='(\w+)'.+"
+#     # ddl_location_freq = DDL_META_PATTERN
+#     commands = [f"""hive -e "show create table {tbl};" """ for tbl in tables]
+#     ddl_strings = run_asyncio_commands(commands=commands,
+#                                        max_concurrent_tasks=min(
+#                                            len(tables), 10))
+#     # for cmd, rc, ddl in ddl_strings:
+#     #     matched = ddl_location_freq.match(ddl)
+#     #     if matched:
+#     #         # pprint(matched.groups())
+#     #         # table_name, hdfs_location, load_freq = matched.groups()
+#     #         table_name, hdfs_location = matched.groups()
+#     #     else:
+#     #         print(f"Not matched! {cmd}")
+#     #         logging.warning(f"Not matched! {cmd}")
+#     #     yield table_name, hdfs_location
+#     return get_ddl_string(ddl_strings)
+
+
+def get_ddl_commands(tables: List[str]) -> Generator:
+    return (f"""hive -e "show create table {tbl};" """ for tbl in tables)
+
+
+def get_meta_from_ddl_results(cmd_results: List[CommandResult]) -> Generator:
+    for cmd, rc, ddl in cmd_results:
+        meta = get_meta_from_ddl(ddl=ddl, pattern=DDL_META_PATTERN)
+        yield meta.name, meta.location
+
+
+def get_meta_from_ddl(ddl: str, pattern: Pattern = DDL_META_PATTERN) -> TableMeta:
+    # ddl_location_freq = re.compile(ddl_location_re, re.DOTALL | re.MULTILINE)
+    matched = pattern.match(ddl)
+
+    table_name, hdfs_location = None, None
+    if matched:
+        # pprint(matched.groups())
+        # table_name, hdfs_location, load_freq = matched.groups()
+        table_name, hdfs_location = matched.groups()
+    else:
+        print(f"Not matched! {ddl}")
+        logging.warning(f"Not matched! {ddl}")
+
+    return TableMeta(name=table_name, location=hdfs_location, load_frequency="Daily")
 
 
 def send_slack(json_data: Dict, webhook: str) -> int:
@@ -419,10 +457,26 @@ def main() -> None:
     slack_webhook = args.slack_webhook
     message_header = args.message_header
 
+    done_file_mapping = {
+        "campaign_guest_line_performance": "campaign_report_performance",
+        "campaign_line_performance": "campaign_report_performance",
+        "campaign_guest_line_performance_ss": "campaign_performance_ss",
+        "campaign_line_performance_ss": "campaign_performance_ss",
+        "campaign_report_performance_ss": "campaign_performance_ss",
+        "active_guest_exposure": "campaign_report_performance",
+        "active_user_exposure": "campaign_report_performance",
+        "guest_features_item": "whitewalker_test_control_final",
+        "guest_features_item_final": "whitewalker_test_control_final"
+    }
     start = time.perf_counter()
+    # TODO: Change it to use queues between the two async commands
+    ddl_results = run_asyncio_commands(commands=get_ddl_commands(tables=TABLE_LIST),
+                                       max_concurrent_tasks=min(
+                                           len(TABLE_LIST), 10))
+
     results = run_asyncio_commands(commands=[
                 f"hdfs dfs -ls {data_loc} | tail -1"
-                for _, data_loc in get_table_location(tables=TABLE_LIST) if data_loc is not None
+                for _, data_loc in get_meta_from_ddl_results(cmd_results=ddl_results) if data_loc is not None
             ],
                                    max_concurrent_tasks=MAX_CONCURRENCY)
     end = time.perf_counter()
@@ -435,15 +489,20 @@ def main() -> None:
 
     # table_info["table_info"] = add_done_file_info(table_list=table_info["table_info"])
     commands = done_commands_from_table(table_list=table_info["table_info"],
-                                        done_file_mapping={
-                                            "campaign_guest_line_performance": "campaign_report_performance",
-                                            "campaign_line_performance": "campaign_report_performance"
-                                        })
+                                        done_file_mapping=done_file_mapping)
     done_file_results = run_asyncio_commands(commands=commands, max_concurrent_tasks=MAX_CONCURRENCY)
 
     done_file = extract_done_flag(done_file_results)
     for tbl in table_info["table_info"]:
-        tbl["done_flag"] = done_file[tbl["table_name"]]
+        try:
+            tbl["done_flag"] = done_file[done_file_mapping[tbl["table_name"]]]
+        except KeyError:
+            logging.info(f"""No mapping exists, use the original table name {tbl["table_name"]}""")
+            tbl["done_flag"] = done_file[tbl["table_name"]]
+        # if done_file_mapping.get(tbl["table_name"], None) is not None:
+        #     tbl["done_flag"] = done_file[done_file_mapping[tbl["table_name"]]]
+        # else:
+        #     tbl["done_flag"] = done_file[tbl["table_name"]]
 
     # from pprint import pprint
     # pprint(table_info)

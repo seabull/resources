@@ -1,6 +1,7 @@
 import pytest
 import table_meta_info_report
-
+import re
+import types
 
 @pytest.fixture(scope="session")
 def webhook():
@@ -89,8 +90,51 @@ def test_get_all_tables():
     pass
 
 
+@pytest.mark.parametrize("table_list, expected_cmds", [
+    (["prd_roundel_fnd.guest_spend"], ["""hive -e "show create table prd_roundel_fnd.guest_spend;" """]),
+    (["prd_roundel_fnd.guest_spend", "prd_roundel_fnd.guest_behavior"],
+     ["""hive -e "show create table prd_roundel_fnd.guest_spend;" """,
+      """hive -e "show create table prd_roundel_fnd.guest_behavior;" """,
+      ]),
+])
+def test_get_ddl_commands(table_list, expected_cmds):
+    result = table_meta_info_report.get_ddl_commands(table_list)
+    assert isinstance(result, types.GeneratorType)
+    assert list(result) == expected_cmds
+
+
+def test_get_meta_from_ddl_results():
+    pass
+
+
 def test_get_table_location():
     pass
+
+
+# @pytest.mark.parametrize("cmd_results, expected", [
+#     ([table_meta_info_report.CommandResult(cmd="", returncode=0, output="""CREATE TABLE prd_roundel_fnd.guest_spend ( ) LOCATION
+#     'hdfs://bigredns/apps/hive/warehouse/prd_roundel_fnd.db/guest_spend'
+#     """)],
+#      ("prd_roundel_fnd.guest_spend", "hdfs://bigredns/apps/hive/warehouse/prd_roundel_fnd.db/guest_spend")
+#     )
+# ])
+# def test_get_ddl_strings():
+#     pass
+
+
+@pytest.mark.parametrize("ddl, pattern, expected", [
+    ("""CREATE TABLE prd_roundel_fnd.guest_spend ( ) LOCATION
+    'hdfs://bigredns/apps/hive/warehouse/prd_roundel_fnd.db/guest_spend'
+    """,
+     table_meta_info_report.DDL_META_PATTERN,
+     table_meta_info_report.TableMeta(name="prd_roundel_fnd.guest_spend",
+                                      location="hdfs://bigredns/apps/hive/warehouse/prd_roundel_fnd.db/guest_spend",
+                                      load_frequency="Daily")
+     )
+])
+def test_get_meta_from_ddl(ddl, pattern, expected):
+    result = table_meta_info_report.get_meta_from_ddl(ddl=ddl, pattern=pattern)
+    assert result == expected
 
 
 @pytest.mark.parametrize("tables, done_file_mapping, expected_commands", [
