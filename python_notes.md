@@ -314,6 +314,8 @@ tuple`, `str`, and `bytes
 
 - [Asyncio Walk through](https://realpython.com/async-io-python/)
 
+- [Simple Examples](http://bit.ly/asyncpython)
+
 ### Pytest
 
 **Monkeypatching with pytest (Example #1)**

@@ -138,14 +138,14 @@ async def get_location_from_ddl(ddl: str) -> str:
     pass
 
 
-def make_chunks(l, n):
+def make_chunks(lst, n):
     """Yield successive n-sized chunks from l.
 
     Note:
         Taken from https://stackoverflow.com/a/312464
     """
     # Assume Python 3
-    for i in range(0, len(l), n):
+    for i in range(0, len(lst), n):
         yield l[i:i + n]
 
 
@@ -167,8 +167,8 @@ def run_asyncio_commands(commands: List[str],
         chunks = [tasks]
         num_chunks = len(chunks)
     else:
-        chunks = make_chunks(l=tasks, n=max_concurrent_tasks)
-        num_chunks = len(list(make_chunks(l=tasks, n=max_concurrent_tasks)))
+        chunks = make_chunks(lst=tasks, n=max_concurrent_tasks)
+        num_chunks = len(list(make_chunks(lst=tasks, n=max_concurrent_tasks)))
 
     if asyncio.get_event_loop().is_closed():
         asyncio.set_event_loop(asyncio.new_event_loop())
