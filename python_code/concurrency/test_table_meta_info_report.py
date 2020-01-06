@@ -3,8 +3,12 @@ import table_meta_info_report
 import re
 import types
 
+
 @pytest.fixture(scope="session")
 def webhook():
+    """
+    Read webhook text from file webhook.txt
+    """
     with open("webhook.txt", "r") as f:
         webhook = f.readline().strip()
     return webhook
@@ -86,6 +90,7 @@ def test_extract_info_from_results(cmd_results, expected):
     assert result == expected
 
 
+@pytest.mark.skip
 def test_get_all_tables():
     pass
 
@@ -103,10 +108,12 @@ def test_get_ddl_commands(table_list, expected_cmds):
     assert list(result) == expected_cmds
 
 
+@pytest.mark.skip
 def test_get_meta_from_ddl_results():
     pass
 
 
+@pytest.mark.skip
 def test_get_table_location():
     pass
 
@@ -162,13 +169,14 @@ def test_done_commands_from_table(tables, done_file_mapping, expected_commands):
 @pytest.mark.parametrize("cmd_results, expected_flags", [
     ([table_meta_info_report.CommandResult(cmd="", returncode=0, output="")],
     []
-    )
+    ),
+    pytest.param(table_meta_info_report.CommandResult(cmd="", returncode=0, output=""), [], marks=pytest.mark.xfail)
 ])
 def test_extract_done_flag(cmd_results, expected_flags):
     flags = table_meta_info_report.extract_done_flag(cmd_results)
 
 
-pytest.mark.slack
+@pytest.mark.slack
 def test_send_slack(webhook):
     txt = table_meta_info_report.format_table_info({'table_info':
                           [

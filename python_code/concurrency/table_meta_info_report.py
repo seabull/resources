@@ -146,7 +146,7 @@ def make_chunks(lst, n):
     """
     # Assume Python 3
     for i in range(0, len(lst), n):
-        yield l[i:i + n]
+        yield lst[i:i + n]
 
 
 def run_asyncio_commands(commands: List[str],
