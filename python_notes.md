@@ -279,18 +279,336 @@ tuple`, `str`, and `bytes
 
 - Functions and Objects
 
+  - ## Modern Replacements for map, filter, and reduce
+
+    Functional languages commonly offer the `map`, `filter`, and `reduce` higher-order functions (sometimes with different names). The `map` and `filter` functions are still built-ins in Python 3, but since the introduction of list comprehensions and generator expressions, they are not as important. A listcomp or a genexp does the job of `map` and `filter` combined, but is more readable. Consider example below.
+
+    ```python
+  >>> list(map(fact, range(6)))  
+    [1, 1, 2, 6, 24, 120]
+    >>> [fact(n) for n in range(6)]  
+    [1, 1, 2, 6, 24, 120]
+    >>> list(map(factorial, filter(lambda n: n % 2, range(6))))  
+  [1, 6, 120]
+    >>> [factorial(n) for n in range(6) if n % 2]  
+    [1, 6, 120]
+    >>>
+    ```
+  
+    In Python 3, `map` and `filter` return generators—a form of iterator—so their direct substitute is now a generator expression (in Python 2, these functions returned lists, therefore their closest alternative is a listcomp).
+  
+    The `reduce` function was demoted from a built-in in Python 2 to the `functools` module in Python 3. Its most common use case, summation, is better served by the `sum` built-in available since Python 2.3 was released in 2003. This is a big win in terms of readability and performance
+  
   - Lambdas: rarely useful in Python
-
+  
   - ##### LUNDH’S LAMBDA REFACTORING RECIPE
-
+  
     If you find a piece of code hard to understand because of a `lambda`, Fredrik Lundh suggests this refactoring procedure:
-
+  
     1. Write a comment explaining what the heck that `lambda` does.
     2. Study the comment for a while, and think of a name that captures the essence of the comment.
     3. Convert the `lambda` to a `def` statement, using that name.
     4. Remove the comment.
-
+  
     These steps are quoted from the [Functional Programming HOWTO](http://docs.python.org/3/howto/functional.html), a must read.
+    
+  - the Seven Flavors of Callable Objects
+  
+    - **User-defined functions**: Created with `def` statements or `lambda` expressions.
+  
+    - **Built-in functions**: A function implemented in C (for CPython), like `len` or `time.strftime`.
+  
+    - **Built-in methods:** Methods implemented in C, like `dict.get`.
+  
+    - **Methods**: Functions defined in the body of a class.
+  
+    - **Classes**
+  
+      When invoked, a class runs its `__new__` method to create an instance, then `__init__` to initialize it, and finally the instance is returned to the caller. Because there is no `new` operator in Python, calling a class is like calling a function. (Usually calling a class creates an instance of the same class, but other behaviors are possible by overriding `__new__`. We’ll see an example of this in [“Flexible Object Creation with __new__”](https://learning.oreilly.com/library/view/fluent-python/9781491946237/ch19.html#flexible_new_sec).)
+  
+    - **Class instances**
+  
+      If a class defines a `__call__` method, then its instances may be invoked as functions. See [“User-Defined Callable Types”](https://learning.oreilly.com/library/view/fluent-python/9781491946237/ch05.html#user_callables).
+  
+    - **Generator functions**
+  
+      Functions or methods that use the `yield` keyword. When called, generator functions return a generator object.
+  
+  - Introspection of module example
+  
+  - ```Python
+    promos = [func for name, func in
+                    inspect.getmembers(promotions, inspect.isfunction)]
+    
+    def best_promo(order):
+        """Select best discount available
+        """
+        return max(promo(order) for promo in promos)
+    ```
+  
+  - Function Introspection 
+  
+    - List attributes of function that don't exist in plain instances
+  
+    - ```Python
+      >>> class C: pass  #1 create a bare user defined class
+      >>> obj = C()  #2 make an instance of it
+      >>> def func(): pass  #3 create a bare function
+      >>> sorted(set(dir(func)) - set(dir(obj))) #4 using set diff, generate a sorted list
+      ['__annotations__', '__call__', '__closure__', '__code__', '__defaults__',
+      '__get__', '__globals__', '__kwdefaults__', '__name__', '__qualname__']
+      ```
+  
+  - Function Decorators and Closures
+  
+    - Decorator 101
+  
+      - ```python
+        @decorate
+        def target():
+            print('running target()')
+            
+        # Effectively the above code is the same as code below
+        def target():
+            print('running target()')
+        
+        target = decorate(target)
+        ```
+  
+      - A key feature of decorators is that they run right after the decorated function is defined. That is usually at *import time*. **Function decorators are executed as soon as the module is imported, but the decorated functions only run when they are explicitly invoked**. This highlights the difference between what Pythonistas call *import time* and *runtime*. e.g.
+  
+      - ```python
+        registry = []  #1
+        
+        def register(func):  #2
+            print('running register(%s)' % func)  3
+            registry.append(func)  #4
+            return func  #5 not typical but used in some frameworks
+        
+        @register  #6
+        def f1():
+            print('running f1()')
+        
+        @register
+        def f2():
+            print('running f2()')
+        
+        def f3():  #7 Not decorated
+            print('running f3()')
+        
+        def main():  #8
+            print('running main()')
+            print('registry ->', registry)
+            f1()
+            f2()
+            f3()
+        
+        if __name__=='__main__':
+            main()  #9
+        ```
+  
+      - Variable Scope Rules: Local reference to global variable need to be declared 
+  
+      - ```python
+        b = 6
+        >>> def f2(a):
+        ...     # global b
+        ...     print(a)
+        ...     print(b)
+        ...     b = 9
+        ...
+        >>> f2(3)
+        3
+        Traceback (most recent call last):
+          File "<stdin>", line 1, in <module>
+          File "<stdin>", line 3, in f2
+        UnboundLocalError: local variable 'b' referenced before assignment
+        ```
+  
+        - The `dis` module provides an easy way to disassemble the bytecode of Python functions.
+  
+      - Closures: a closure is a function with an extended scope that encompasses nonglobal variables referenced in the body of the function but not defined there. It does not matter whether the function is anonymous or not; what matters is that it can access nonglobal variables that are defined outside of its body
+  
+      - ```python
+        # a better version below
+        def make_averager():
+            series = []
+        
+            def averager(new_value):
+                series.append(new_value)
+                total = sum(series)
+                return total/len(series)
+        
+            return averager
+        >>> avg = make_averager()
+        >>> avg(10)
+        10.0
+        >>> avg(11)
+        10.5
+        >>> avg(12)
+        11.0
+        >>> avg.__code__.co_varnames
+        ('new_value', 'total')
+        >>> avg.__code__.co_freevars
+        ('series',)
+        
+        >>> avg.__code__.co_freevars
+        ('series',)
+        >>> avg.__closure__
+        (<cell at 0x107a44f78: list object at 0x107a91a48>,)
+        >>> avg.__closure__[0].cell_contents
+        [10, 11, 12]
+        
+        def make_averager():
+            count = 0
+            total = 0
+        
+            def averager(new_value):
+                nonlocal count, total
+                count += 1
+                total += new_value
+                return total / count
+        
+            return averager
+        ```
+  
+      - Decorators (see [more](https://github.com/GrahamDumpleton/wrapt/blob/develop/blog/README.md)). [How you implemented your python decorator is wrong](https://github.com/GrahamDumpleton/wrapt/blob/develop/blog/01-how-you-implemented-your-python-decorator-is-wrong.md)
+  
+      - ```python
+        import time
+        
+        def clock(func):
+            def clocked(*args):  # 1. Define inner function clocked to accept any number of positional arguments.
+                t0 = time.perf_counter()
+                result = func(*args)  #2.This line only works because the closure for clocked encompasses the func free variable.
+                elapsed = time.perf_counter() - t0
+                name = func.__name__
+                arg_str = ', '.join(repr(arg) for arg in args)
+                print('[%0.8fs] %s(%s) -> %r' % (elapsed, name, arg_str, result))
+                return result
+            return clocked  # 3. Return the inner function to replace the decorated function.
+        
+        # better version
+        import time
+        import functools
+        
+        def clock(func):
+            @functools.wraps(func)
+            def clocked(*args, **kwargs):
+                t0 = time.time()
+                result = func(*args, **kwargs)
+                elapsed = time.time() - t0
+                name = func.__name__
+                arg_lst = []
+                if args:
+                    arg_lst.append(', '.join(repr(arg) for arg in args))
+                if kwargs:
+                    pairs = ['%s=%r' % (k, w) for k, w in sorted(kwargs.items())]
+                    arg_lst.append(', '.join(pairs))
+                arg_str = ', '.join(arg_lst)
+                print('[%0.8fs] %s(%s) -> %r ' % (elapsed, name, arg_str, result))
+                return result
+            return clocked
+        ```
+  
+        - ```python
+          class function_wrapper(object):
+              def __init__(self, wrapped):
+                  self.wrapped = wrapped
+                  functools.update_wrapper(self, wrapped)
+              def __call__(self, *args, **kwargs):
+                  return self.wrapped(*args, **kwargs)
+          
+          @function_wrapper
+          def function():
+              pass
+          ```
+  
+        - Standard library decorators: functools.wraps, functools.lru_cache, functools.singledispatch
+  
+          - lru_cache
+  
+          - ```python
+            functools.lru_cache(maxsize=128, typed=False)
+            ```
+  
+          - singledispatch: A notable quality of the `singledispatch` mechanism is that you can register specialized functions **anywhere in the system**, in any module. If you later add a module with a new user-defined type, you can easily provide a new custom function to handle that type. And you can write custom functions for classes that you did not write and can’t change.
+  
+          - ```python
+            #singledispatch creates a custom htmlize.register to bundle several functions into a generic function
+            from functools import singledispatch
+            from collections import abc
+            import numbers
+            import html
+            
+            @singledispatch  # 1. @singledispatch marks the base function that handles the object type.
+            def htmlize(obj):
+                content = html.escape(repr(obj))
+                return '<pre>{}</pre>'.format(content)
+            
+            @htmlize.register(str)  # 2. Each specialized function is decorated with @«base_function».register(«type»).
+            def _(text):            # 3. The name of the specialized functions is irrelevant; _ is a good choice to make this clear.
+                content = html.escape(text).replace('\n', '<br>\n')
+                return '<p>{0}</p>'.format(content)
+            
+            @htmlize.register(numbers.Integral)  # 4. For each additional type to receive special treatment, register a new function. numbers.Integral is a virtual superclass of int
+            def _(n):
+                return '<pre>{0} (0x{0:x})</pre>'.format(n)
+            
+            @htmlize.register(tuple)  # 5. You can stack several register decorators to support different types with the same function.
+            @htmlize.register(abc.MutableSequence)
+            def _(seq):
+                inner = '</li>\n<li>'.join(htmlize(item) for item in seq)
+                return '<ul>\n<li>' + inner + '</li>\n</ul>'
+            ```
+  
+        - Stacked Decorators
+  
+        - ```python
+          @d1
+          @d2
+          def f():
+              print('f')
+              
+          # the same as
+          def f():
+              print('f')
+          
+          f = d1(d2(f))
+          ```
+  
+        - Parameterized decorators
+  
+        - ```python
+          import time
+          
+          DEFAULT_FMT = '[{elapsed:0.8f}s] {name}({args}) -> {result}'
+          
+          def clock(fmt=DEFAULT_FMT):  1
+              def decorate(func):      2
+                  def clocked(*_args): 3
+                      t0 = time.time()
+                      _result = func(*_args)  4
+                      elapsed = time.time() - t0
+                      name = func.__name__
+                      args = ', '.join(repr(arg) for arg in _args)  5
+                      result = repr(_result)  6
+                      print(fmt.format(**locals()))  # 7. Using **locals() here allows any local variable of clocked to be referenced in the fmt.
+                      return _result  8
+                  return clocked  9
+              return decorate  10
+          
+          if __name__ == '__main__':
+          
+              @clock()  11
+              def snooze(seconds):
+                  time.sleep(seconds)
+          
+              for i in range(3):
+                  snooze(.123)
+          ```
+  
+        - 
 
 
 

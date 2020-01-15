@@ -21,11 +21,14 @@ for f in os.listdir(os.path.dirname(os.path.abspath(__file__))):
 
 CommandResult = namedtuple("CommandResult", "cmd returncode output")
 TableMeta = namedtuple("TableMeta", "name location load_frequency")
-DDL_META_RE = r"CREATE\s+(?:EXTERNAL\s)*TABLE\s+[`]?(\w+.\w+)[`]?.+LOCATION\s*[\n]\s*[']([\w/:.]+)[']"
+
+# DDL_META_RE = r"CREATE\s+(?:EXTERNAL\s)*TABLE\s+[`]?(\w+.\w+)[`]?.+LOCATION\s*[\n]\s*[']([\w/:.]+)[']"
+DDL_META_RE = r"CREATE\s+(?:EXTERNAL\s)*TABLE\s+[`]?(\w+.\w+)[`]?.+LOCATION\s*[\n]\s*[']([\w/:.]+)['].+"
 DDL_META_PATTERN = re.compile(DDL_META_RE, re.DOTALL | re.MULTILINE)
+DDL_META_FREQ_PATTERN = re.compile(r".+'LOAD_FREQUENCY'='(\w+)'", re.DOTALL | re.MULTILINE)
 
 DB_NAME = "prd_roundel_fnd"
-MAX_CONCURRENCY=10
+MAX_CONCURRENCY = 10
 
 # f"prd_roundel_fnd.salesforce_reports",
 # f"{DB_NAME}.active_reports",
@@ -36,25 +39,22 @@ MAX_CONCURRENCY=10
 # f"{DB_NAME}.line_impression_counts",
 # f"{DB_NAME}.ss_report_logic",
 # f"{DB_NAME}.frctnl_allctn",
-TABLE_LIST = (
-    f"{DB_NAME}.active_guest_exposure",
-    f"{DB_NAME}.active_user_exposure",
-    f"{DB_NAME}.campaign_guest_line_performance",
-    f"{DB_NAME}.campaign_line_performance",
-    f"{DB_NAME}.campaign_report_performance",
-    f"{DB_NAME}.campaign_guest_line_performance_ss",
-    f"{DB_NAME}.campaign_line_performance_ss",
-    f"{DB_NAME}.campaign_report_performance_ss",
-    f"{DB_NAME}.exception_table",
-    f"{DB_NAME}.guest_behavior",
-    f"{DB_NAME}.guest_features_global",
-    f"{DB_NAME}.guest_features_item",
-    f"{DB_NAME}.guest_features_item_final", f"{DB_NAME}.guest_spend",
-    f"{DB_NAME}.lift_metrics", f"{DB_NAME}.lift_metrics_ss",
-    f"{DB_NAME}.sf_reporting_insights",
-    f"{DB_NAME}.whitewalker_test_control_final",
-    f"{DB_NAME}.whitewalker_test_control_final_ss"
-)
+TABLE_LIST = (f"{DB_NAME}.active_guest_exposure",
+              f"{DB_NAME}.active_user_exposure",
+              f"{DB_NAME}.campaign_guest_line_performance",
+              f"{DB_NAME}.campaign_line_performance",
+              f"{DB_NAME}.campaign_report_performance",
+              f"{DB_NAME}.campaign_guest_line_performance_ss",
+              f"{DB_NAME}.campaign_line_performance_ss",
+              f"{DB_NAME}.campaign_report_performance_ss",
+              f"{DB_NAME}.exception_table", f"{DB_NAME}.guest_behavior",
+              f"{DB_NAME}.guest_features_global",
+              f"{DB_NAME}.guest_features_item",
+              f"{DB_NAME}.guest_features_item_final", f"{DB_NAME}.guest_spend",
+              f"{DB_NAME}.lift_metrics", f"{DB_NAME}.lift_metrics_ss",
+              f"{DB_NAME}.sf_reporting_insights",
+              f"{DB_NAME}.whitewalker_test_control_final",
+              f"{DB_NAME}.whitewalker_test_control_final_ss")
 
 
 async def run_command(*args) -> CommandResult:
@@ -117,12 +117,14 @@ async def run_command_shell(command: str) -> CommandResult:
 
     # Progress
     if process.returncode == 0:
-        logging.info(f"Done:{command}, pid = {str(process.pid)}")  # , flush=True)
+        logging.info(
+            f"Done:{command}, pid = {str(process.pid)}")  # , flush=True)
         result = CommandResult(cmd=command,
                                returncode=process.returncode,
                                output=stdout.decode().strip())
     else:
-        logging.error(f"Failed:{command}, pid = {str(process.pid)}")  # , flush=True)
+        logging.error(
+            f"Failed:{command}, pid = {str(process.pid)}")  # , flush=True)
         result = CommandResult(cmd=command,
                                returncode=process.returncode,
                                output=stderr.decode().strip())
@@ -189,12 +191,12 @@ def run_asyncio_commands(commands: List[str],
     return consolidated_results
 
 
-def format_table_info(data: Dict) -> str:
+def format_table_info(data: List) -> str:
     slack_text = f"""
         ```
 |{"Table Name":>40}|{"Date":>12}|{"Time":>12}|{"Max Partition":>15}|{"Partition Status":>16}|
 |{"":->40}|{"":->12}|{"":->12}|{"":->15}|{"":->16}|"""
-    for tbl in data.get("table_info", []):
+    for tbl in data:
         if tbl["done_flag"] == "Not Exist":
             done_status = "In Progress/NA"
         else:
@@ -205,9 +207,9 @@ def format_table_info(data: Dict) -> str:
     return slack_text
 
 
-def extract_info_from_results(cmd_results: List[CommandResult]) -> Dict:
+def extract_info_from_results(cmd_results: List[CommandResult]) -> List:
     # TODO: convert to __str__
-    rtn = {"table_info": []}
+    rtn = []
     for cmd, rc, output in cmd_results:
         if output is not None and str(output).strip() != '':
             logging.debug(f"cmd={cmd}, rc={rc}, output={output}")
@@ -220,10 +222,12 @@ def extract_info_from_results(cmd_results: List[CommandResult]) -> Dict:
                 update_date, update_time, hdfs_path = content.split(' ')[-3:]
                 tbl = hdfs_path.split('/')[-2]
                 # print(f"table={tbl}, date={content_and_part_val[1]}")
-                rtn["table_info"].append({"table_name": tbl,
-                                          "update_date": update_date,
-                                          "update_time": update_time,
-                                          "max_partition": max_partition})
+                rtn.append({
+                    "table_name": tbl,
+                    "update_date": update_date,
+                    "update_time": update_time,
+                    "max_partition": max_partition
+                })
             else:
                 logging.warning(f"No partition found in {output}")
         else:
@@ -276,15 +280,18 @@ def get_ddl_commands(tables: List[str]) -> Generator:
 
 def get_meta_from_ddl_results(cmd_results: List[CommandResult]) -> Generator:
     for cmd, rc, ddl in cmd_results:
-        meta = get_meta_from_ddl(ddl=ddl, pattern=DDL_META_PATTERN)
-        yield meta.name, meta.location
+        # meta = get_meta_from_ddl(ddl=ddl, pattern=DDL_META_PATTERN)
+        # yield meta.name, meta.location, meta.load_frequency
+        yield get_meta_from_ddl(ddl=ddl, pattern=DDL_META_PATTERN)
 
 
-def get_meta_from_ddl(ddl: str, pattern: Pattern = DDL_META_PATTERN) -> TableMeta:
+def get_meta_from_ddl(ddl: str,
+                      pattern: Pattern = DDL_META_PATTERN,
+                      load_pattern: Pattern = DDL_META_FREQ_PATTERN) -> TableMeta:
     # ddl_location_freq = re.compile(ddl_location_re, re.DOTALL | re.MULTILINE)
     matched = pattern.match(ddl)
 
-    table_name, hdfs_location = None, None
+    table_name, hdfs_location, load_frequency = None, None, "Daily"
     if matched:
         # pprint(matched.groups())
         # table_name, hdfs_location, load_freq = matched.groups()
@@ -293,7 +300,16 @@ def get_meta_from_ddl(ddl: str, pattern: Pattern = DDL_META_PATTERN) -> TableMet
         print(f"Not matched! {ddl}")
         logging.warning(f"Not matched! {ddl}")
 
-    return TableMeta(name=table_name, location=hdfs_location, load_frequency="Daily")
+    matched = load_pattern.match(ddl)
+    if matched:
+        load_frequency = matched.group(1)
+    else:
+        print(f"Load Frequency not matched! {ddl}")
+        logging.warning(f"Load Frequency Not matched! {ddl}")
+
+    return TableMeta(name=table_name,
+                     location=hdfs_location,
+                     load_frequency=load_frequency)
 
 
 def send_slack(json_data: Dict, webhook: str) -> int:
@@ -309,11 +325,13 @@ def send_slack(json_data: Dict, webhook: str) -> int:
     return rtn
 
 
-def done_commands_from_table(table_list: List[Dict], done_file_mapping: Dict = None) -> List[str]:
+def done_commands_from_table(table_list: List[Dict],
+                             done_file_mapping: Dict = None) -> List[str]:
     commands = []
     for tbl in table_list:
         table_name = tbl.get("table_name", None)
-        if tbl is not None and table_name is not None and tbl.get("max_partition", None) is not None:
+        if tbl is not None and table_name is not None and tbl.get(
+                "max_partition", None) is not None:
             # find done files
             # done_file[tbl["table_name"]] = None
             part = tbl["max_partition"]
@@ -321,31 +339,40 @@ def done_commands_from_table(table_list: List[Dict], done_file_mapping: Dict = N
                 part = part.replace('-', '/')
                 # print(f"{part}")
             else:
-                matched = re.match(part, '([1-9][0-9]{3})([01][0-9])([0-3][0-9])')
+                matched = re.match(part,
+                                   '([1-9][0-9]{3})([01][0-9])([0-3][0-9])')
                 if matched:
                     logging.warning(f"Partition value format change: {part}")
                     part = '/'.join(matched.groups())
                 else:
-                    logging.warning(f"Unknown partition value format {part}, SKIP")
-            if done_file_mapping is not None and done_file_mapping.get(table_name, None) is not None:
-                logging.debug(f"mapping found {table_name} : {done_file_mapping[table_name]}")
+                    logging.warning(
+                        f"Unknown partition value format {part}, SKIP")
+            if done_file_mapping is not None and done_file_mapping.get(
+                    table_name, None) is not None:
+                logging.debug(
+                    f"mapping found {table_name} : {done_file_mapping[table_name]}"
+                )
                 table_name = done_file_mapping[table_name]
             else:
                 logging.debug(f"No mappings!!! {done_file_mapping}")
-            commands.append(f"""hdfs dfs -ls /common/MMA/data/ready/{DB_NAME}/{part}/{table_name}*""")
+            commands.append(
+                f"""hdfs dfs -ls /common/MMA/data/ready/{DB_NAME}/{part}/{table_name}*"""
+            )
         else:
             logging.warning(f"Table name or max partition is None!")
     return commands
 
 
-def extract_done_flag(done_file_cmd_results: List[CommandResult]) -> DefaultDict:
+def extract_done_flag(done_file_cmd_results: List[CommandResult]
+                      ) -> DefaultDict:
     # Use defaultdict to avoid missing key exception
     done_file = defaultdict(lambda: "Not Exist")
 
     for cmd, rc, output in done_file_cmd_results:
         logging.debug(f"Done file checking output: {output}")
 
-        if cmd is not None and cmd.strip() != "" and output is not None and output.strip() != "":
+        if cmd is not None and cmd.strip(
+        ) != "" and output is not None and output.strip() != "":
             tbl_name = cmd.split('/')[-1][:-1]
             if "No such file" in output:
                 logging.warning(f"Done file not found: {output}")
@@ -353,7 +380,8 @@ def extract_done_flag(done_file_cmd_results: List[CommandResult]) -> DefaultDict
             elif f"{tbl_name}" in output:
                 done_file[tbl_name] = output.strip().split('/')[-1]
             else:
-                logging.warning(f"Unknown done file command output string {output}")
+                logging.warning(
+                    f"Unknown done file command output string {output}")
                 done_file[tbl_name] = output.strip()
         else:
             logging.warning(f"No output from {cmd}")
@@ -432,15 +460,13 @@ def main() -> None:
     #     "hdfs dfs -ls /apps/hive/warehouse/prd_roundel_fnd.db/campaign_report_performance | tail -1",
     # )
 
-    parser = argparse.ArgumentParser(description='Send Hive table metadata to slack channel')
-    parser.add_argument(
-        '--slack-webhook',
-        type=str,
-        required=True,
-        dest='slack_webhook',
-        help=
-        "The slack webhook URL"
-    )
+    parser = argparse.ArgumentParser(
+        description='Send Hive table metadata to slack channel')
+    parser.add_argument('--slack-webhook',
+                        type=str,
+                        required=True,
+                        dest='slack_webhook',
+                        help="The slack webhook URL")
     parser.add_argument(
         '--message-header',
         type=str,
@@ -450,8 +476,7 @@ def main() -> None:
         f"Partition Status: _Completed_=Max Partition Loaded, {os.linesep}"
         f"                  _In Progress/NA_=Either Max Partition is being loaded or No Information Available "
         f"(Done flag not created/supported)",
-        help=
-        "The slack message header added in front of the table information"
+        help="The slack message header added in front of the table information"
     )
     args = parser.parse_args()
     slack_webhook = args.slack_webhook
@@ -466,19 +491,29 @@ def main() -> None:
         "active_guest_exposure": "campaign_report_performance",
         "active_user_exposure": "campaign_report_performance",
         "guest_features_item": "whitewalker_test_control_final",
-        "guest_features_item_final": "whitewalker_test_control_final"
+        "guest_features_item_final": "whitewalker_test_control_final",
+        "sf_reporting_insights": "salesforce_reports",
     }
     start = time.perf_counter()
     # TODO: Change it to use queues between the two async commands
-    ddl_results = run_asyncio_commands(commands=get_ddl_commands(tables=TABLE_LIST),
-                                       max_concurrent_tasks=min(
-                                           len(TABLE_LIST), 10))
+    ddl_results = run_asyncio_commands(
+        commands=get_ddl_commands(tables=TABLE_LIST),
+        max_concurrent_tasks=min(len(TABLE_LIST), 10))
 
+    # table_meta = []
+    # for name, data_loc, load_freq in get_meta_from_ddl_results(cmd_results=ddl_results):
+    #     if data_loc is not None:
+    #         table_meta.append({'table_name': name, 'data_loc': data_loc, 'load_frequency': load_freq})
     results = run_asyncio_commands(commands=[
-                f"hdfs dfs -ls {data_loc} | tail -1"
-                for _, data_loc in get_meta_from_ddl_results(cmd_results=ddl_results) if data_loc is not None
-            ],
+        f"hdfs dfs -ls {data_loc} | tail -1"
+        for _, data_loc, load_freq in get_meta_from_ddl_results(cmd_results=ddl_results)
+        if data_loc is not None
+    ],
                                    max_concurrent_tasks=MAX_CONCURRENCY)
+    # results = run_asyncio_commands(commands=[
+    #             f"hdfs dfs -ls {tbl_info['data_loc']} | tail -1"
+    #             for tbl_info in table_meta
+    #         ], max_concurrent_tasks=MAX_CONCURRENCY)
     end = time.perf_counter()
     logging.info(f"Asyncio Time Taken: {round(end - start, 4):.4f}")
     print(f"Asyncio Time Taken: {round(end - start, 4):.4f}")
@@ -487,17 +522,24 @@ def main() -> None:
     # pprint(results)
     table_info = extract_info_from_results(cmd_results=results)
 
+    # for i in table_info:
+    #     # TODO: use collections.ChainMap?
+    #     table_meta[i['table_name']].update(i)
+
     # table_info["table_info"] = add_done_file_info(table_list=table_info["table_info"])
-    commands = done_commands_from_table(table_list=table_info["table_info"],
+    commands = done_commands_from_table(table_list=table_info,
                                         done_file_mapping=done_file_mapping)
-    done_file_results = run_asyncio_commands(commands=commands, max_concurrent_tasks=MAX_CONCURRENCY)
+    done_file_results = run_asyncio_commands(
+        commands=commands, max_concurrent_tasks=MAX_CONCURRENCY)
 
     done_file = extract_done_flag(done_file_results)
-    for tbl in table_info["table_info"]:
+    for tbl in table_info:
         try:
             tbl["done_flag"] = done_file[done_file_mapping[tbl["table_name"]]]
         except KeyError:
-            logging.info(f"""No mapping exists, use the original table name {tbl["table_name"]}""")
+            logging.info(
+                f"""No mapping exists, use the original table name {tbl["table_name"]}"""
+            )
             tbl["done_flag"] = done_file[tbl["table_name"]]
         # if done_file_mapping.get(tbl["table_name"], None) is not None:
         #     tbl["done_flag"] = done_file[done_file_mapping[tbl["table_name"]]]
@@ -511,8 +553,8 @@ def main() -> None:
     status = send_slack(json_data={
         "channel": "datasciences-roundel-ops",
         "text": f"{message_header} {table_info_str}"
-    }, webhook=slack_webhook
-    )
+    },
+                        webhook=slack_webhook)
 
     if status != 200:
         logging.error(f"Error sending slack message: {status}")
