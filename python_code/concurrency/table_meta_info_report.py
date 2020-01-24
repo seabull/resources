@@ -211,15 +211,15 @@ def format_table_info(data: Dict) -> str:
     # pprint(data)
     slack_text = f"""
         ```
-|{"Table Name":>40}|{"Date":>12}|{"Time":>5}|{"Max Partition":>13}|{"Frequency":>9}|{"Status":>10}|
-|{"":->40}|{"":->12}|{"":->5}|{"":->13}|{"":->9}|{"":->10}|"""
+|{"Table Name":>40}|{"Date":>12}|{"Time":>6}|{"Max Partition":>13}|{"Frequency":>11}|{"Status":>10}|
+|{"":->40}|{"":->12}|{"":->6}|{"":->13}|{"":->11}|{"":->10}|"""
     for name, tbl in data.items():
         if tbl["done_flag"] == "Not Exist":
             done_status = "In Progress/NA"
         else:
             done_status = "Completed"
 
-        slack_text += f"""{os.linesep}|{name:>40}|{tbl.get("update_date", ""):>12}|{tbl["update_time"]:>5}|{tbl["max_partition"]:>13}|{tbl["load_frequency"]:>9}|{done_status:>10}|"""
+        slack_text += f"""{os.linesep}|{name:>40}|{tbl.get("update_date", ""):>12}|{tbl["update_time"]:>6}|{tbl["max_partition"]:>13}|{tbl["load_frequency"]:>11}|{done_status:>10}|"""
     slack_text += "```"
     return slack_text
 
