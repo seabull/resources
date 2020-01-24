@@ -284,15 +284,14 @@ tuple`, `str`, and `bytes
     Functional languages commonly offer the `map`, `filter`, and `reduce` higher-order functions (sometimes with different names). The `map` and `filter` functions are still built-ins in Python 3, but since the introduction of list comprehensions and generator expressions, they are not as important. A listcomp or a genexp does the job of `map` and `filter` combined, but is more readable. Consider example below.
 
     ```python
-  >>> list(map(fact, range(6)))  
-    [1, 1, 2, 6, 24, 120]
-    >>> [fact(n) for n in range(6)]  
-    [1, 1, 2, 6, 24, 120]
-    >>> list(map(factorial, filter(lambda n: n % 2, range(6))))  
-  [1, 6, 120]
-    >>> [factorial(n) for n in range(6) if n % 2]  
+    list(map(fact, range(6)))  
+      [1, 1, 2, 6, 24, 120]
+    [fact(n) for n in range(6)]  
+      [1, 1, 2, 6, 24, 120]
+    list(map(factorial, filter(lambda n: n % 2, range(6))))  
     [1, 6, 120]
-    >>>
+    [factorial(n) for n in range(6) if n % 2]  
+      [1, 6, 120]
     ```
   
     In Python 3, `map` and `filter` return generators—a form of iterator—so their direct substitute is now a generator expression (in Python 2, these functions returned lists, therefore their closest alternative is a listcomp).
@@ -359,6 +358,62 @@ tuple`, `str`, and `bytes
       '__get__', '__globals__', '__kwdefaults__', '__name__', '__qualname__']
       ```
   
+  - # Packages for Functional Programming
+  
+    - The operator module: To save you the trouble of writing trivial anonymous functions like `lambda a, b: a*b`, the `operator` module provides function equivalents for dozens of arithmetic operators. 
+  
+    - ```python
+      from functools import reduce
+      from operator import mul
+      
+      def fact(n):
+          return reduce(mul, range(1, n+1))
+      ```
+    
+    - Another group of one-trick lambdas that `operator` replaces are functions to pick items from sequences or read attributes from objects: `itemgetter` and `attrgetter` actually build custom functions to do that.
+    
+    - ```python
+    >>> metro_data = [
+      ...     ('Tokyo', 'JP', 36.933, (35.689722, 139.691667)),
+    ...     ('Delhi NCR', 'IN', 21.935, (28.613889, 77.208889)),
+      ...     ('Mexico City', 'MX', 20.142, (19.433333, -99.133333)),
+      ...     ('New York-Newark', 'US', 20.104, (40.808611, -74.020386)),
+      ...     ('Sao Paulo', 'BR', 19.649, (-23.547778, -46.635833)),
+      ... ]
+      >>>
+      >>> from operator import itemgetter
+      >>> for city in sorted(metro_data, key=itemgetter(1)):
+      ...     print(city)
+      ...
+      ('Sao Paulo', 'BR', 19.649, (-23.547778, -46.635833))
+      ('Delhi NCR', 'IN', 21.935, (28.613889, 77.208889))
+      ('Tokyo', 'JP', 36.933, (35.689722, 139.691667))
+      ('Mexico City', 'MX', 20.142, (19.433333, -99.133333))
+      ('New York-Newark', 'US', 20.104, (40.808611, -74.020386))
+      >>> from operator import methodcaller
+      >>> s = 'The time has come'
+      >>> upcase = methodcaller('upper')
+      >>> upcase(s)
+      'THE TIME HAS COME'
+      >>> hiphenate = methodcaller('replace', ' ', '-')
+      >>> hiphenate(s)
+      'The-time-has-come'
+      ```
+    
+    - ## Freezing Arguments with functools.partial
+    
+    - ```python
+      >>> from operator import mul
+      >>> from functools import partial
+    >>> triple = partial(mul, 3)  # 1
+      >>> triple(7)  # 2
+    21
+      >>> list(map(triple, range(1, 10)))  # 3
+      [3, 6, 9, 12, 15, 18, 21, 24, 27]
+      ```
+    
+    - 
+    
   - Function Decorators and Closures
   
     - Decorator 101
@@ -608,7 +663,134 @@ tuple`, `str`, and `bytes
                   snooze(.123)
           ```
   
-        - 
+      - Object references, Mutability and Recycling
+      
+        - To understand an assignment in Python, always read the right-hand side first: that’s where the object is created or retrieved. After that, the variable on the left is bound to the object, like a label stuck to it. Just forget about the boxes
+      
+        - *Every object has an identity, a type and a value. An object’s identity never changes once it has been created; you may think of it as the object’s address in memory. The* `is` *operator compares the identity of two objects; the* `id()` *function returns an integer representing its identity.*
+      
+        - ```python
+          >>> charles = {'name': 'Charles L. Dodgson', 'born': 1832}
+          >>> lewis = charles  #1
+          >>> lewis is charles
+          True
+          >>> id(charles), id(lewis)  #2
+          (4300473992, 4300473992)
+          >>> lewis['balance'] = 950  #3
+          >>> charles
+          {'name': 'Charles L. Dodgson', 'balance': 950, 'born': 1832}
+          >>> alex = {'name': 'Charles L. Dodgson', 'born': 1832, 'balance': 950}  #1
+          >>> alex == charles  2
+          True
+          >>> alex is not charles  3
+          True
+          
+          ```
+      
+        - The `is` operator is faster than `==`, because it cannot be overloaded, so Python does not have to find and invoke special methods to evaluate it, and computing is as simple as comparing two integer IDs.
+      
+        - Copies are shallow by default
+      
+        - ```python
+          >>> l1 = [3, [55, 44], (7, 8, 9)]
+          >>> l2 = list(l1)  1
+          >>> l2
+          [3, [55, 44], (7, 8, 9)]
+          >>> l2 == l1  2
+          True
+          >>> l2 is l1  3
+          False
+          l1 = [3, [66, 55, 44], (7, 8, 9)]
+          l2 = list(l1)      1
+          l1.append(100)     2
+          l1[1].remove(55)   3
+          print('l1:', l1)
+          print('l2:', l2)
+          l2[1] += [33, 22]  4
+          l2[2] += (10, 11)  5
+          print('l1:', l1)
+          print('l2:', l2)
+          ```
+      
+        - Function Parameters as References
+      
+          - The only mode of parameter passing in Python is *call by sharing*. That is the same mode used in most OO languages, including Ruby, SmallTalk, and Java (this applies to Java reference types; primitive types use call by value). Call by sharing means that each formal parameter of the function gets a copy of each reference in the arguments. In other words, the parameters inside the function become aliases of the actual arguments.
+      
+          - ```python
+            >>> def f(a, b):
+            ...     a += b
+            ...     return a
+            ...
+            >>> x = 1
+            >>> y = 2
+            >>> f(x, y)
+            3
+            >>> x, y  #1
+            (1, 2)
+            >>> a = [1, 2]
+            >>> b = [3, 4]
+            >>> f(a, b)
+            [1, 2, 3, 4]
+            >>> a, b  #2
+            ([1, 2, 3, 4], [3, 4])
+            >>> t = (10, 20)
+            >>> u = (30, 40)
+            >>> f(t, u)  #3
+            (10, 20, 30, 40)
+            >>> t, u
+            ((10, 20), (30, 40))
+            ```
+      
+          - ## Mutable Types as Parameter Defaults: Bad Idea
+      
+            - ## Defensive Programming with Mutable Parameters
+      
+            - Unless a method is explicitly intended to mutate an object received as argument, you should think twice before aliasing the argument object by simply assigning it to an instance variable in your class. If in doubt, make a copy. Your clients will often be happier.
+      
+          - ```python
+            class HauntedBus:
+                """A bus model haunted by ghost passengers"""
+            
+                def __init__(self, passengers=[]):  1
+                    self.passengers = passengers  2
+            
+                def pick(self, name):
+                    self.passengers.append(name)  3
+            
+                def drop(self, name):
+                    self.passengers.remove(name)
+                    
+            >>> bus1 = HauntedBus(['Alice', 'Bill'])
+            >>> bus1.passengers
+            ['Alice', 'Bill']
+            >>> bus1.pick('Charlie')
+            >>> bus1.drop('Alice')
+            >>> bus1.passengers  1
+            ['Bill', 'Charlie']
+            >>> bus2 = HauntedBus()  2
+            >>> bus2.pick('Carrie')
+            >>> bus2.passengers
+            ['Carrie']
+            >>> bus3 = HauntedBus()  3
+            >>> bus3.passengers  4
+            ['Carrie']
+            >>> bus3.pick('Dave')
+            >>> bus2.passengers  5
+            ['Carrie', 'Dave']
+            >>> bus2.passengers is bus3.passengers  6
+            True
+            >>> bus1.passengers  7
+            ['Bill', 'Charlie']
+            
+            >>> dir(HauntedBus.__init__)  # doctest: +ELLIPSIS
+            ['__annotations__', '__call__', ..., '__defaults__', ...]
+            >>> HauntedBus.__init__.__defaults__
+            (['Carrie', 'Dave'],)
+            >>> HauntedBus.__init__.__defaults__[0] is bus2.passengers
+            True
+            ```
+      
+          - 
 
 
 
