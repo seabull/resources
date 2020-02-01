@@ -1,7 +1,9 @@
 import pytest
 import table_meta_info_report
+from asyncio_command.command import run_asyncio_commands, run_command_shell, make_chunks
 # import re
 import types
+import re
 
 
 @pytest.fixture(scope="session")
@@ -24,7 +26,7 @@ def webhook():
     (('a', 'b', 'c', 'd'), 2, [('a', 'b'), ('c', 'd')]),
 ])
 def test_make_chunks(lst, chunk_size, expected):
-    result = list(table_meta_info_report.make_chunks(lst, chunk_size))
+    result = list(make_chunks(lst, chunk_size))
     assert result is not None
     assert result == expected
 
@@ -40,7 +42,7 @@ def test_make_chunks(lst, chunk_size, expected):
 ])
 @pytest.mark.asyncio
 async def test_run_command_shell(command: str, expected: str):
-    result = await table_meta_info_report.run_command_shell(command=command)
+    result = await run_command_shell(command=command)
     assert result == expected
 
 
@@ -57,7 +59,7 @@ async def test_run_command_shell(command: str, expected: str):
     ([], 2, []),
 ])
 def test_run_asyncio_commands(commands, max_concurrency, expected):
-    result = table_meta_info_report.run_asyncio_commands(
+    result = run_asyncio_commands(
         commands=commands, max_concurrent_tasks=max_concurrency)
     assert result == expected
 
@@ -65,19 +67,22 @@ def test_run_asyncio_commands(commands, max_concurrency, expected):
 @pytest.mark.format
 def test_format_table_info(webhook):
     d = table_meta_info_report.format_table_info(
-        [{
+        { 'Guest_spend':
+            {
             "table_name": "Guest_spend",
             "max_partition": "2019-12-02",
             "done_flag": "Not Exist",
             "update_date": "2019-12-01",
-            "update_time": "10:00"
-        }]
+            "update_time": "10:00",
+                "load_frequency": "Daily"
+            }
+        }
     )
     assert d == """\
 \n        ```\n\
-|                              Table Name|        Date|        Time|  Max Partition|Partition Status|\n\
-|----------------------------------------|------------|------------|---------------|----------------|\n\
-|                             Guest_spend|  2019-12-01|       10:00|     2019-12-02|  In Progress/NA|\
+|                              Table Name|        Date|  Time|Max Partition|  Frequency|    Status|\n\
+|----------------------------------------|------------|------|-------------|-----------|----------|\n\
+|                             Guest_spend|  2019-12-01| 10:00|   2019-12-02|      Daily|In Progress/NA|\
 ```"""
 
 
@@ -316,7 +321,7 @@ def test_send_slack(webhook):
 #     assert txt is not None
 
 @pytest.mark.parametrize("dict1, dict2, expected",
-    [
+                         [
         ({'a': {"aa": 1, "bb": 2}, 'b': {"dd": 4}},
          {'a': {"cc": 3}},
 
@@ -339,27 +344,111 @@ def test_send_slack(webhook):
          {'a': ['aa', "bb", 'cc', 'aa']}
          ),
         ##
-    ])
+        ])
 def test_merge_dict(dict1, dict2, expected):
     merged = table_meta_info_report.merge_dict(dict1, dict2)
     assert merged == expected
 
 
-@pytest.mark.parametrize()
-def test_parse_partition_result():
-    pass
+@pytest.mark.parametrize("part_meta, done_file_info, done_file_mapping, expected_rtn",
+                         [
+                             ({}, {}, {}, {}),
+                             ({'tableA': {}}, {}, {}, {"tableA": {"done_flag": "Unknown"}}),
+                             ({'tableA': {'hdfs_location': '/common/MMA/xxx'}},
+                              {'tableA': {'done_flag':'/common/MMA/2020/01/10/tableA_donefile'}},
+                              {},
+                              {'tableA': {'hdfs_location': '/common/MMA/xxx',
+                                          'done_flag': '/common/MMA/2020/01/10/tableA_donefile'}}),
+
+                         ])
+def test_add_done_info(part_meta, done_file_info, done_file_mapping, expected_rtn):
+    rtn = table_meta_info_report.add_done_info(part_meta=part_meta, done_file_info=done_file_info, done_file_mapping=done_file_mapping)
+    assert rtn == expected_rtn
 
 
-@pytest.mark.parametrize()
-def test_parse_ddl_dict():
-    pass
+@pytest.mark.parametrize("cmd_result, expected_rtn",
+                         [
+                             (table_meta_info_report.CommandResult(cmd='', returncode=0,
+                                                                   output='drwxrwxr-x   - SVMMAHLSTC mmaholac          0 2020-01-10 06:26 hdfs://bigredns/apps/hive/warehouse/prd_roundel_fnd.db/tableA/sls_d=2020-01-08'),
+                              {
+                                  'tableA': {
+                                      "table_name" : 'tableA',
+                                      "update_date":  '2020-01-10',
+                                      "update_time": '06:26',
+                                      "max_partition": '2020-01-08'
+                                  }
+                              })
+                         ])
+def test_parse_partition_result(cmd_result, expected_rtn):
+    rtn = table_meta_info_report.parse_partition_result(cmd_result=cmd_result)
+    assert rtn == expected_rtn
 
 
-@pytest.mark.parametrize()
-def test_parse_done_result():
-    pass
+@pytest.mark.parametrize("ddl, pattern_re, load_freq_pattern, expected",
+                         [
+                             ("""CREATE TABLE prd_roundel_fnd.tableA (
+                             column1 int 'comment 1',
+                             )
+                             COMMENT 'this is a comment'
+                             PARTITIONED BY (`part_col` string COMMENT 'partition comment')
+                             LOCATION 'hdfs://bigredns/apps/hive/warehouse/prd_roundel_fnd.db/tableA'
+                             TBLPROPERTIES (
+                             'Prop1'='value1',
+                             'Prop2'='value2',
+)
+                             """,
+                              re.compile(r"CREATE\s*(?:EXTERNAL\s)*TABLE\s+[`]?(\w+)\.(\w+)[`]?.+LOCATION\s*[\n]?\s*[']([\w/:.]+)['].+",
+                                         re.DOTALL | re.MULTILINE), table_meta_info_report.DDL_META_FREQ_PATTERN,
+                              { 'tableA':
+                                    {'hdfs_location': 'hdfs://bigredns/apps/hive/warehouse/prd_roundel_fnd.db/tableA',
+                                     'load_frequency': 'Daily',
+                                     'db_name': 'prd_roundel_fnd',
+                                     }
+                                }),
+                             ("""CREATE TABLE prd_roundel_fnd.tableA (
+                                                      column1 int 'comment 1',
+                                                      )
+                                                      COMMENT 'this is a comment'
+                                                      PARTITIONED BY (`part_col` string COMMENT 'partition comment')
+                                                      LOCATION 'hdfs://bigredns/apps/hive/warehouse/prd_roundel_fnd.db/tableA'
+                                                      TBLPROPERTIES (
+                                                      'Prop1'='value1',
+                                                      'Prop2'='value2',
+                                                      'LOAD_FREQUENCY'='Weekly'
+                         )
+                                                      """,
+                              re.compile(
+                                  r"CREATE\s*(?:EXTERNAL\s)*TABLE\s+[`]?(\w+)\.(\w+)[`]?.+LOCATION\s*[\n]?\s*[']([\w/:.]+)['].+",
+                                  re.DOTALL | re.MULTILINE), table_meta_info_report.DDL_META_FREQ_PATTERN,
+                              {'tableA':
+                                   {'hdfs_location': 'hdfs://bigredns/apps/hive/warehouse/prd_roundel_fnd.db/tableA',
+                                    'load_frequency': 'Weekly',
+                                    'db_name': 'prd_roundel_fnd',
+                                    }
+                               }),
+                         ])
+def test_parse_ddl_dict(ddl, pattern_re, load_freq_pattern, expected):
+    rtn = table_meta_info_report.parse_ddl_dict(ddl=ddl, pattern=pattern_re, load_pattern=load_freq_pattern)
+    assert rtn == expected
 
 
-@pytest.mark.parametrize()
-def test_done_command_str():
-    pass
+@pytest.mark.parametrize("cmd_result, expected", [
+    (table_meta_info_report.CommandResult(cmd='hdfs dfs -ls /common/MMA/data/ready/prd_roundel_fnd/2020/01/20/tableA*', returncode=0,
+                                          output='-rw-r--r--   3 SVTMNHOLP  mmaholac          0 2020-01-20 19:12 /common/MMA/data/ready/prd_roundel_fnd/2020/01/20/tableA_daily.ready'),
+     {'tableA': {"done_flag": 'tableA_daily.ready'}})
+])
+def test_parse_done_result(cmd_result, expected):
+    rtn = table_meta_info_report.parse_done_result(cmd_result=cmd_result)
+    assert rtn == expected
+
+
+@pytest.mark.parametrize("table_name, max_partition, done_file_mapping, db_name, expected",
+                         [
+                             ("tableA", "2020-01-20", {}, "prd_roundel_fnd",
+                              "hdfs dfs -ls /common/MMA/data/ready/prd_roundel_fnd/2020/01/20/tableA*")
+                         ]
+                         )
+def test_done_command_str(table_name, max_partition, done_file_mapping, db_name, expected):
+    rtn = table_meta_info_report.done_command_str(table_name=table_name, max_partition=max_partition,
+                                                  done_file_mapping=done_file_mapping, db_name=db_name)
+    assert rtn == expected
