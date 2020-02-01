@@ -318,7 +318,7 @@ def done_command_str(table_name: str, max_partition: str, done_file_mapping: Dic
             table_name = done_file_mapping[table_name]
         else:
             logging.debug(f"No mappings!!! {done_file_mapping}")
-        command = f"""hdfs dfs -ls /common/MMA/data/ready/{db_name}/{part}/{table_name}*"""
+        command = f"""hdfs dfs -ls /common/MMA/data/ready/{db_name}/{part}/{table_name}_{{daily,weekly}}.ready"""
     else:
         logging.warning(f"Table name or max partition is None!")
     return command
@@ -579,6 +579,8 @@ def main() -> None:
 
     done_file_info = {k: v for d in (parse_done_result(cmd_result=result)
                                      for result in done_file_results) for k, v in d.items()}
+    # from pprint import pprint
+    # pprint(done_file_info)
     # done_file = extract_done_flag(done_file_results)
 
     # table_meta_list = merge_meta_list(table_partition_meta_list, done_file_results)
