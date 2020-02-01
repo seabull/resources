@@ -81,15 +81,15 @@ def format_table_info(data: Dict) -> str:
     # pprint(data)
     slack_text = f"""
         ```
-|{"Table Name":>40}|{"Date":>12}|{"Time":>6}|{"Max Partition":>13}|{"Frequency":>11}|{"Status":>10}|
-|{"":->40}|{"":->12}|{"":->6}|{"":->13}|{"":->11}|{"":->10}|"""
+|{"Table Name":>40}|{"Date":>12}|{"Time":>6}|{"Max Partition":>13}|{"Frequency":>11}|{"Status":>14}|
+|{"":->40}|{"":->12}|{"":->6}|{"":->13}|{"":->11}|{"":->14}|"""
     for name, tbl in data.items():
-        if tbl["done_flag"] == "Not Exist":
+        if tbl.get("done_flag", None) is None or tbl["done_flag"] == "Unknown":
             done_status = "In Progress/NA"
         else:
             done_status = "Completed"
 
-        slack_text += f"""{os.linesep}|{name:>40}|{tbl.get("update_date", ""):>12}|{tbl["update_time"]:>6}|{tbl["max_partition"]:>13}|{tbl["load_frequency"]:>11}|{done_status:>10}|"""
+        slack_text += f"""{os.linesep}|{name:>40}|{tbl.get("update_date", ""):>12}|{tbl["update_time"]:>6}|{tbl["max_partition"]:>13}|{tbl["load_frequency"]:>11}|{done_status:>14}|"""
     slack_text += "```"
     return slack_text
 
@@ -318,7 +318,8 @@ def done_command_str(table_name: str, max_partition: str, done_file_mapping: Dic
             table_name = done_file_mapping[table_name]
         else:
             logging.debug(f"No mappings!!! {done_file_mapping}")
-        command = f"""hdfs dfs -ls /common/MMA/data/ready/{db_name}/{part}/{table_name}_{{daily,weekly}}.ready"""
+        # check for {table_name}_daily.ready or {table_name}_weekly.ready
+        command = f"""hdfs dfs -ls /common/MMA/data/ready/{db_name}/{part}/{table_name}_daily.ready || hdfs dfs -ls /common/MMA/data/ready/{db_name}/{part}/{table_name}_weekly.ready"""
     else:
         logging.warning(f"Table name or max partition is None!")
     return command
@@ -374,17 +375,18 @@ def done_command_str(table_name: str, max_partition: str, done_file_mapping: Dic
 
 def parse_done_result(cmd_result: CommandResult) -> Dict:
     # Use defaultdict to avoid missing key exception
-    # done_file = defaultdict(lambda: "Not Exist")
+    # done_file = defaultdict(lambda: "Unknown")
     tbl_name, done_file_name = "Unknown", None
     if cmd_result is not None and cmd_result.cmd is not None \
             and cmd_result.cmd.strip() != "" \
             and cmd_result.output is not None \
             and cmd_result.output.strip() != "":
-        # f"hdfs dfs -ls /common/MMA/data/ready/{db_name}/{part}/{table_name}_{{daily,weekly}}.ready"
-        tbl_name = cmd_result.cmd.split('/')[-1].split('{')[0][:-1]
-        if "No such file" in cmd_result.output:
+        # f"""hdfs dfs -ls /common/MMA/data/ready/{db_name}/{part}/{table_name}_daily.ready || hdfs dfs -ls /common/MMA/data/ready/{db_name}/{part}/{table_name}_weekly.ready"""
+        tbl_name = '_'.join(cmd_result.cmd.split('/')[-1].split('.')[0].split('_')[:-1])
+        partition_name = '-'.join(cmd_result.cmd.split('/')[-4:-1])  # 2020/02/10 => 2020-02-10
+        if cmd_result.returncode != 0 or "No such file" in cmd_result.output:
             logging.warning(f"Done file not found: {cmd_result.output}")
-            # done_file[tbl_name] = "Not Exist"
+            # done_file[tbl_name] = "Unknown"
         elif f"{tbl_name}" in cmd_result.output:
             done_file_name = cmd_result.output.strip().split('/')[-1]
             # print(f"done_file_name={done_file_name}")
@@ -393,8 +395,14 @@ def parse_done_result(cmd_result: CommandResult) -> Dict:
                 f"Unknown done file command output string {cmd_result.output}")
             done_file_name = cmd_result.output.strip()
     else:
-        logging.warning(f"No output from {cmd_result.cmd}")
-    return {tbl_name: {"done_flag": done_file_name}}
+        logging.warning(f"Done file not found or No output from {cmd_result.cmd}")
+    return {
+                tbl_name:
+                {
+                    "done_flag": done_file_name,
+                    "partition": partition_name,
+                }
+            }
 
 
 # def merge_meta_list(meta1: List[TableMeta], meta2: List[TableMeta]) -> List[TableMeta]:
@@ -415,17 +423,34 @@ def parse_done_result(cmd_result: CommandResult) -> Dict:
 
 
 def add_done_info(part_meta: Dict, done_file_info: Dict, done_file_mapping: Dict):
+    """
+    Add done file result into partition metadata
+    :param part_meta: {'active_guest_exposure':
+                            {'max_partition': '2020-01-30',
+                           'table_name': 'active_guest_exposure',
+                           'update_date': '2020-02-01',
+                           'update_time': '10:10'}, ...}
+    :param done_file_info: e.g. {'campaign_performance_ss': {'done_flag': 'campaign_performance_ss_daily.ready', 'partition': '2020-02-10'}, ...}
+    :param done_file_mapping:
+    :return:
+    """
     rtn = {}
     for name, meta in part_meta.items():
-        done_meta = {}
+        done_meta = {"done_flag": "Unknown"}
         if name in done_file_info:
             # TODO: check done_file_info[name] value is a dict
-            done_meta = done_file_info[name]
+            if meta['max_partition'] == done_file_info[name].get('partition', None):
+                done_meta = done_file_info[name]
+            else:
+                logging.info(f"Done file for table {name} found but partition is not {meta['max_partition']}")
         elif name in done_file_mapping and done_file_mapping[name] in done_file_info:
-            done_meta = done_file_info[done_file_mapping[name]]
+            if meta['max_partition'] == done_file_info[done_file_mapping[name]].get('partition', None):
+                done_meta = done_file_info[done_file_mapping[name]]
+            else:
+                logging.info(f"Done file {done_file_mapping[name]} for table {name} found but partition is not {meta['max_partition']}")
         else:
             logging.warning(f"Done file information not available for {name}, {done_file_info}, {done_file_mapping}")
-            done_meta = {"done_flag": "Unknown"}
+            # done_meta = {"done_flag": "Unknown"}
         rtn[name] = {**meta, **done_meta}
     return rtn
 
@@ -599,11 +624,14 @@ def main() -> None:
     #     # else:
     #     #     tbl["done_flag"] = done_file[tbl["table_name"]]
 
-    # from pprint import pprint
+    from pprint import pprint
     # pprint(table_info)
 
+    # pprint(table_partition_meta_dict)
+    # pprint(done_file_info)
     tbl_meta_partition_done = add_done_info(part_meta=table_partition_meta_dict,
                                             done_file_info=done_file_info, done_file_mapping=done_file_mapping)
+    # pprint(tbl_meta_partition_done)
     table_info = merge_dict(tbl_meta, tbl_meta_partition_done)
 
     coord_job_details = get_coord_jobs(users=['SVMMAHLSTC', 'SVTMNHOLP'], status='RUNNING')
