@@ -380,12 +380,14 @@ def parse_done_result(cmd_result: CommandResult) -> Dict:
             and cmd_result.cmd.strip() != "" \
             and cmd_result.output is not None \
             and cmd_result.output.strip() != "":
-        tbl_name = cmd_result.cmd.split('/')[-1][:-1]
+        # f"hdfs dfs -ls /common/MMA/data/ready/{db_name}/{part}/{table_name}_{{daily,weekly}}.ready"
+        tbl_name = cmd_result.cmd.split('/')[-1].split('{')[0][:-1]
         if "No such file" in cmd_result.output:
             logging.warning(f"Done file not found: {cmd_result.output}")
             # done_file[tbl_name] = "Not Exist"
         elif f"{tbl_name}" in cmd_result.output:
             done_file_name = cmd_result.output.strip().split('/')[-1]
+            # print(f"done_file_name={done_file_name}")
         else:
             logging.warning(
                 f"Unknown done file command output string {cmd_result.output}")
