@@ -790,9 +790,40 @@ tuple`, `str`, and `bytes
             True
             ```
       
-          - 
+          - # classmethod Versus staticmethod
+      
+            The `classmethod` decorator is not mentioned in the Python tutorial, and neither is `staticmethod`. Anyone who has learned OO in Java may wonder why Python has both of these decorators and not just one of them.
+      
+            Let’s start with `classmethod`. [Example 9-3](https://learning.oreilly.com/library/view/fluent-python/9781491946237/ch09.html#ex_vector2d_v1) shows its use: to define a method that operates on the class and not on instances. `classmethod` changes the way the method is called, so it receives the class itself as the first argument, instead of an instance. Its most common use is for alternative constructors, like `frombytes` in [Example 9-3](https://learning.oreilly.com/library/view/fluent-python/9781491946237/ch09.html#ex_vector2d_v1). Note how the last line of `frombytes` actually uses the `cls` argument by invoking it to build a new instance: `cls(*memv)`. By convention, the first parameter of a class method should be named `cls` (but Python doesn’t care how it’s named).
+      
+            In contrast, the `staticmethod` decorator changes a method so that it receives no special first argument. In essence, a static method is just like a plain function that happens to live in a class body, instead of being defined at the module level. [Example 9-4](https://learning.oreilly.com/library/view/fluent-python/9781491946237/ch09.html#ex_class_staticmethod) contrasts the operation of `classmethod` and `staticmethod`.
+      
+            ```python
+            >>> class Demo:
+            ...     @classmethod
+            ...     def klassmeth(*args):
+            ...         return args  #1
+            ...     @staticmethod
+            ...     def statmeth(*args):
+            ...         return args  #2
+            ...
+            >>> Demo.klassmeth()  #3
+            (<class '__main__.Demo'>,)
+            >>> Demo.klassmeth('spam')
+            (<class '__main__.Demo'>, 'spam')
+            >>> Demo.statmeth()   #4
+            ()
+            >>> Demo.statmeth('spam')
+            ('spam',)
+            ```
+      
+            
 
 
+
+### Package and Import
+
+- [Relative Imports for the billionth time](https://stackoverflow.com/questions/14132789/relative-imports-for-the-billionth-time/14132912#14132912)
 
 ### Async and Threading
 

@@ -15,7 +15,7 @@ from typing import List, Dict, DefaultDict, Pattern, Generator, Tuple
 # from pprint import pprint
 
 from asyncio_command.command import run_asyncio_commands, CommandResult
-from oozie_cli import get_coord_jobs, format_coord_details
+from oozie_cli import get_coord_jobs, format_coord_details, merge_dict
 
 for f in os.listdir(os.path.dirname(os.path.abspath(__file__))):
     if os.path.isfile(f) and (f.endswith(".egg") or f.endswith(".zip")):
@@ -412,28 +412,6 @@ def parse_done_result(cmd_result: CommandResult) -> Dict:
 #              = meta2.max_partition or meta1.max_partition
 
 
-def merge_dict(dict1: Dict, dict2: Dict) -> Dict:
-    """
-    Merge two dictionaries
-    :param dict1:
-    :param dict2:
-    :return: merged dict
-    """
-    dict3 = {**dict2, **dict1}
-    for key, value in dict3.items():
-        if key in dict1 and key in dict2:
-            if isinstance(value, dict) and isinstance(dict2[key], dict):
-                dict3[key] = {**value, **dict2[key]}
-            elif isinstance(value, list) and isinstance(dict2[key], list):
-                dict3[key] = value + dict2[key]
-            else:
-                # raise ValueError(f"one of the dict value is not dict")
-                logging.warning(f"one of the dict value is not dict")
-                dict3[key] = [value, dict2[key]]
-
-    return dict3
-
-
 def add_done_info(part_meta: Dict, done_file_info: Dict, done_file_mapping: Dict):
     rtn = {}
     for name, meta in part_meta.items():
@@ -624,7 +602,7 @@ def main() -> None:
                                             done_file_info=done_file_info, done_file_mapping=done_file_mapping)
     table_info = merge_dict(tbl_meta, tbl_meta_partition_done)
 
-    coord_job_details = get_coord_jobs(user='SVMMAHLSTC', status='RUNNING')
+    coord_job_details = get_coord_jobs(users=['SVMMAHLSTC', 'SVTMNHOLP'], status='RUNNING')
 
     coord_job_str = format_coord_details(job_details=coord_job_details)
     table_info_str = format_table_info(data=table_info)

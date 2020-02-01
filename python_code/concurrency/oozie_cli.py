@@ -1,4 +1,3 @@
-from table_meta_info_report import CommandResult, merge_dict
 import os
 from typing import List, Dict
 import logging
@@ -7,15 +6,44 @@ from datetime import datetime
 import re
 from operator import itemgetter
 
-from asyncio_command.command import run_asyncio_commands
+from asyncio_command.command import run_asyncio_commands, CommandResult
 from pprint import pprint
 
+# TODO: Change CLI to use APIs
 
-def get_coord_jobs(user: str, status: str) -> Dict:
-    command_str = f"""oozie jobs -jobtype coordinator -filter user={user.upper()}\\;status={status.upper()} | grep '{status.upper()}'"""
-    coord_jobs_output = run_asyncio_commands(commands=[command_str], max_concurrent_tasks=1)
-    coord_jobs = parse_jobs_coord(cmd_result=coord_jobs_output[0])
+# TODO: Move it to another module/package
+
+
+def merge_dict(dict1: Dict, dict2: Dict) -> Dict:
+    """
+    Merge two dictionaries
+    :param dict1:
+    :param dict2:
+    :return: merged dict
+    """
+    dict3 = {**dict2, **dict1}
+    for key, value in dict3.items():
+        if key in dict1 and key in dict2:
+            if isinstance(value, dict) and isinstance(dict2[key], dict):
+                dict3[key] = {**value, **dict2[key]}
+            elif isinstance(value, list) and isinstance(dict2[key], list):
+                dict3[key] = value + dict2[key]
+            else:
+                # raise ValueError(f"one of the dict value is not dict")
+                logging.warning(f"one of the dict value is not dict")
+                dict3[key] = [value, dict2[key]]
+
+    return dict3
+
+
+def get_coord_jobs(users: List, status: str) -> Dict:
+    command_strs = (f"""oozie jobs -jobtype coordinator -filter user={u.upper()}\\;status={status.upper()} | grep '{status.upper()}'""" for u in users)
+    coord_jobs_output = run_asyncio_commands(commands=command_strs, max_concurrent_tasks=1)
+    coord_jobs_list = (parse_jobs_coord(cmd_result=output) for output in coord_jobs_output)
+    # Flatten the list of dict into a dict { 'coord_job_id': {} }
+    coord_jobs = {k: v for coord in coord_jobs_list for k, v in coord.items()}
     coord_ids = coord_jobs.keys()
+    # [id for job_ids in (job.keys() for job in coord_jobs_list) for id in job_ids]
 
     coord_job_output = run_asyncio_commands(commands=oozie_cli_job_info_command(job_ids=coord_ids), max_concurrent_tasks=10)
     coord_job_list = (parse_coord_last_run(cmd_result=coord_job) for coord_job in coord_job_output)
@@ -60,8 +88,8 @@ def format_coord_details(job_details: Dict) -> str:
     }
     slack_text = f"""
             ```
-|{"Job Name":>40}|{"status":>11}|{"Start Time":>20}|{"Duration":>10}|{"Scheduled Time":>20}|{"Missing Dependency":>20}|
-|{"":->40}|{"":->11}|{"":->20}|{"":->10}|{"":->20}|{"":->20}|"""
+|{"Job Name":>32}|{"status":>11}|{"Start Time":>20}|{"Duration":>10}|{"Scheduled Time":>20}|{"Missing Dependency":>20}|
+|{"":->32}|{"":->11}|{"":->20}|{"":->10}|{"":->20}|{"":->20}|"""
 
     # job_by_name = {}
     # for coord_id, coord_detail in job_details.items():
@@ -81,11 +109,15 @@ def format_coord_details(job_details: Dict) -> str:
         if coord_detail.get("modify_ts", "").strip() != "" or coord_detail.get("end_ts", "").strip() != "":
             try:
                 start_time = oozie_str2datetime(coord_detail['start_ts'])
-                end_time = coord_detail.get('end_ts', coord_detail['modify_ts'])
+                end_time = coord_detail.get('modify_ts', None)
+                if end_time is None:
+                    end_time = coord_detail['end_ts']
                 duration = oozie_str2datetime(datetime_str=end_time) - start_time
             except ValueError as e:
                 logging.warning(f"Start or end/modify Time not found {e} - {coord_detail}")
-        slack_text += f"""{os.linesep}|{name:>40}|{coord_detail.get("status", "unknown"):>11}|{coord_detail.get("start_ts", ""):>20}|{str(duration):>10}|{coord_detail.get("nominal_time", ""):>20}|{coord_detail.get("missing_dependency", ""):>20}|"""
+            except TypeError as e:
+                logging.warning(f"Start or end/modify Time not found {e} - {coord_detail}")
+        slack_text += f"""{os.linesep}|{name:>32}|{coord_detail.get("status", "unknown"):>11}|{coord_detail.get("start_ts", ""):>20}|{str(duration):>10}|{coord_detail.get("nominal_time", ""):>20}|{coord_detail.get("missing_dependency", ""):>20}|"""
     slack_text += "```"
     return slack_text
 
@@ -528,7 +560,7 @@ def test_parse_jobs_coord(cmd_result, expected):
 
 
 def main():
-    jobs = get_coord_jobs(user='SVMMAHLSTC', status='RUNNING')
+    jobs = get_coord_jobs(users=['SVMMAHLSTC'], status='RUNNING')
     # from pprint import pprint
     pprint(jobs)
 
