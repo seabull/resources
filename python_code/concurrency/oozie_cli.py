@@ -122,7 +122,7 @@ def format_coord_details(job_details: Dict) -> str:
             except KeyError as e:
                 start_time = ''
                 duration = ''
-                logging.error(f"Start or end/modify Time not found {e} - {coord_detail}")
+                logging.warning(f"Start or end/modify Time not found {e} - {coord_detail}")
 
         slack_text += f"""{os.linesep}|{name:>32}|{coord_detail.get("status", "unknown"):>11}|{coord_detail.get("start_ts", ""):>20}|{str(duration):>10}|{coord_detail.get("nominal_time", ""):>20}|{coord_detail.get("missing_dependency", ""):>20}|"""
     slack_text += "```"
