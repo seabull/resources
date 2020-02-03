@@ -520,7 +520,7 @@ def main() -> None:
         type=str,
         required=False,
         dest='job_header',
-        default=f"Latest Oozie Coordinator Job information {os.linesep}"
+        default=f"Latest Oozie Coordinator Job information {os.linesep}",
         help="The slack message header added in front of the job detail information"
     )
     args = parser.parse_args()
