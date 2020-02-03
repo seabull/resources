@@ -515,9 +515,18 @@ def main() -> None:
         f"(Done flag not created/supported)",
         help="The slack message header added in front of the table information"
     )
+    parser.add_argument(
+        '--job-message-header',
+        type=str,
+        required=False,
+        dest='job_header',
+        default=f"Latest Oozie Coordinator Job information {os.linesep}"
+        help="The slack message header added in front of the job detail information"
+    )
     args = parser.parse_args()
     slack_webhook = args.slack_webhook
     message_header = args.message_header
+    job_header = args.job_header
 
     done_file_mapping = {
         "campaign_guest_line_performance": "campaign_report_performance",
@@ -640,7 +649,7 @@ def main() -> None:
     table_info_str = format_table_info(data=table_info)
     status = send_slack(json_data={
         "channel": "datasciences-roundel-ops",
-        "text": f"{message_header} {table_info_str} {coord_job_str}"
+        "text": f"{message_header} {table_info_str} {job_header} {coord_job_str}"
     },
         webhook=slack_webhook)
 

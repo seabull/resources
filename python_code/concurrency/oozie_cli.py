@@ -85,6 +85,8 @@ def format_coord_details(job_details: Dict) -> str:
         'guest_behavior_ads': 'Guest Behavior',
         'camp_gst_and_line_perf': 'Campaign Performance Pipeline',
         'global_feat_ads': 'Global Feature Pipeline',
+        'selfservice_performance': 'Campaign Performance SelfService',
+        'selfservice_performance_gst_cntc_test': 'Perf SelfService GCH Test',
     }
     slack_text = f"""
             ```
@@ -117,6 +119,11 @@ def format_coord_details(job_details: Dict) -> str:
                 logging.warning(f"Start or end/modify Time not found {e} - {coord_detail}")
             except TypeError as e:
                 logging.warning(f"Start or end/modify Time not found {e} - {coord_detail}")
+            except KeyError as e:
+                start_time = ''
+                duration = ''
+                logging.error(f"Start or end/modify Time not found {e} - {coord_detail}")
+
         slack_text += f"""{os.linesep}|{name:>32}|{coord_detail.get("status", "unknown"):>11}|{coord_detail.get("start_ts", ""):>20}|{str(duration):>10}|{coord_detail.get("nominal_time", ""):>20}|{coord_detail.get("missing_dependency", ""):>20}|"""
     slack_text += "```"
     return slack_text
