@@ -13,6 +13,7 @@ from pprint import pprint
 
 # TODO: Move it to another module/package
 
+OOZIE_URL=http://bigoozie:11000/oozie
 
 def merge_dict(dict1: Dict, dict2: Dict) -> Dict:
     """
@@ -37,7 +38,7 @@ def merge_dict(dict1: Dict, dict2: Dict) -> Dict:
 
 
 def get_coord_jobs(users: List, status: str) -> Dict:
-    command_strs = (f"""oozie jobs -jobtype coordinator -filter user={u.upper()}\\;status={status.upper()} | grep '{status.upper()}'""" for u in users)
+    command_strs = (f"""oozie jobs -oozie {OOZIE_URL} -jobtype coordinator -filter user={u.upper()}\\;status={status.upper()} | grep '{status.upper()}'""" for u in users)
     coord_jobs_output = run_asyncio_commands(commands=command_strs, max_concurrent_tasks=1)
     coord_jobs_list = (parse_jobs_coord(cmd_result=output) for output in coord_jobs_output)
     # Flatten the list of dict into a dict { 'coord_job_id': {} }
@@ -134,15 +135,15 @@ def format_coord_details(job_details: Dict) -> str:
 #
 #
 def oozie_cli_job_info_command(job_ids: List):
-    return (f"""oozie job -info {job_id} | grep oozie | tail -1""" for job_id in job_ids)
+    return (f"""oozie job -oozie {OOZIE_URL} -info {job_id} | grep oozie | tail -1""" for job_id in job_ids)
 
 
 def oozie_cli_job_info_wf(job_ids: List):
-    return (f"""oozie job -info {job_id} | head -16""" for job_id in job_ids)
+    return (f"""oozie job -oozie {OOZIE_URL} -info {job_id} | head -16""" for job_id in job_ids)
 
 
 def oozie_cli_job_info(job_ids: List) -> str:
-    return (f"""oozie job -info {job_id}""" for job_id in job_ids)
+    return (f"""oozie job -oozie {OOZIE_URL} -info {job_id}""" for job_id in job_ids)
 
 
 def oozie_str2datetime(datetime_str: str, format_str: str = '%Y-%m-%d %H:%M %Z'):
@@ -268,8 +269,10 @@ def parse_jobs_coord(cmd_result: CommandResult) -> Dict:
                     coord_part.insert(2, coord_name[-7:])
                     coord_part[1] = coord_name[:-7]
                 if len(coord_part) != 11:
-                    raise ValueError(f"Expected 10 components from the oozie jobs command, got {coord} {coord_part}")
-                coord_info[coord_part[0]] = {"name": coord_part[1]}
+                    # raise ValueError(f"Expected 10 components from the oozie jobs command, got {coord} {coord_part}")
+                    logging.error(f"Expected 10 components from the oozie jobs command, got {coord} {coord_part}")
+                else:
+                    coord_info[coord_part[0]] = {"name": coord_part[1]}
             else:
                 logging.warning(f"Expect at least 10 fields from oozie jobs command, got {len(coord_part)}")
     else:
