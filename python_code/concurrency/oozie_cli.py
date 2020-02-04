@@ -13,7 +13,7 @@ from pprint import pprint
 
 # TODO: Move it to another module/package
 
-OOZIE_URL=http://bigoozie:11000/oozie
+OOZIE_URL='http://bigoozie:11000/oozie'
 
 def merge_dict(dict1: Dict, dict2: Dict) -> Dict:
     """
