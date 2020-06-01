@@ -418,7 +418,7 @@ def test_send_slack(data, webhook):
     #             }
     #         }
     #     ]
-    # }, webhook="https://api.target.com/slack_events/v1/webhooks/XYZ")
+    # }, webhook="https://api.abc.com/slack_events/v1/webhooks/XYZ")
     # import json
     status = table_meta_info_report.send_slack(data,
         webhook=webhook)
