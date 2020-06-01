@@ -80,7 +80,6 @@ TABLE_LIST = (f"{DB_NAME}.active_guest_exposure",
 def format_table_info(data: Dict) -> str:
     # pprint(data)
     slack_text = f"""
-        ```
 |{"Table Name":>40}|{"Date":>12}|{"Time":>6}|{"Max Partition":>13}|{"Frequency":>11}|{"Status":>14}|
 |{"":->40}|{"":->12}|{"":->6}|{"":->13}|{"":->11}|{"":->14}|"""
     for name, tbl in data.items():
@@ -90,7 +89,7 @@ def format_table_info(data: Dict) -> str:
             done_status = "Completed"
 
         slack_text += f"""{os.linesep}|{name:>40}|{tbl.get("update_date", ""):>12}|{tbl["update_time"]:>6}|{tbl["max_partition"]:>13}|{tbl["load_frequency"]:>11}|{done_status:>14}|"""
-    slack_text += "```"
+    # slack_text += "```"
     return slack_text
 
 
@@ -243,13 +242,21 @@ def parse_ddl_dict(ddl: str,
 def send_slack(json_data: Dict, webhook: str) -> int:
     # print(json.dumps(json_data))
     rtn = 200
-    resp = requests.post(url=webhook,
-                         data=json.dumps(json_data),
-                         headers={'Content-Type': "application/json"})
-    if resp.status_code != 200:
-        logging.error(f"Error sending message to slack: {json_data}")
-        logging.error(f"{resp}")
-        rtn = resp.status_code
+    try:
+        resp = requests.post(url=webhook,
+                             data=json.dumps(json_data),
+                             headers={'Content-Type': "application/json"})
+    except requests.HTTPError as e:
+        logging.error(f"HTTP error when sending slack message {e}")
+        rtn = 404
+    except Exception as e:
+        logging.error(f"Error when sending slack message {e}")
+        rtn = 404
+    else:
+        if resp.status_code != 200:
+            logging.error(f"Error sending message to slack: {json_data}")
+            logging.error(f"{resp}")
+            rtn = resp.status_code
     return rtn
 
 
@@ -509,10 +516,10 @@ def main() -> None:
         type=str,
         required=False,
         dest='message_header',
-        default=f"Latest table information in *{DB_NAME}* {os.linesep}"
-        f"Partition Status: _Completed_=Max Partition Loaded, {os.linesep}"
-        f"                  _In Progress/NA_=Either Max Partition is being loaded or No Information Available "
-        f"(Done flag not created/supported)",
+        default=f"Latest table information in *{DB_NAME}* {os.linesep}",
+        # f"Partition Status: _Completed_=Max Partition Loaded, {os.linesep}"
+        # f"                  _In Progress/NA_=Either Max Partition is being loaded or No Information Available ",
+        # f"(Done flag not created/supported)", #This causes formatting issues, WHY? too long?
         help="The slack message header added in front of the table information"
     )
     parser.add_argument(
@@ -529,8 +536,8 @@ def main() -> None:
     job_header = args.job_header
 
     done_file_mapping = {
-        "campaign_guest_line_performance": "campaign_report_performance",
-        "campaign_line_performance": "campaign_report_performance",
+        "campaign_guest_line_performance": "campaign_performance",
+        "campaign_line_performance": "campaign_performance",
         "campaign_guest_line_performance_ss": "campaign_performance_ss",
         "campaign_line_performance_ss": "campaign_performance_ss",
         "campaign_report_performance_ss": "campaign_performance_ss",
@@ -594,7 +601,7 @@ def main() -> None:
     # Get max partition and update time for tables
 
     table_partition_meta_dict = \
-        {k: v for d in (parse_partition_result(cmd_result=result) for result in results) for k, v in d.items()}
+        {k: v for d in (parse_partition_result(cmd_result=result) for result in results) if d is not None for k, v in d.items()}
 
     # pprint(table_partition_meta_dict)
     # table_info = extract_info_from_results(cmd_results=results)
@@ -643,13 +650,29 @@ def main() -> None:
     # pprint(tbl_meta_partition_done)
     table_info = merge_dict(tbl_meta, tbl_meta_partition_done)
 
-    coord_job_details = get_coord_jobs(users=['SVMMAHLSTC', 'SVTMNHOLP'], status='RUNNING')
+    coord_job_details = get_coord_jobs(users=['SVMMAHLSTC', 'SVTMNHOLP', 'SVTGAHDPP'], status='RUNNING')
 
     coord_job_str = format_coord_details(job_details=coord_job_details)
     table_info_str = format_table_info(data=table_info)
     status = send_slack(json_data={
         "channel": "datasciences-roundel-ops",
-        "text": f"{message_header} {table_info_str} {job_header} {coord_job_str}"
+        "text": "Latest Update",
+        "blocks": [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"{message_header} ```{table_info_str}````",
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"{job_header} ```{coord_job_str}````"
+                }
+            },
+        ]
     },
         webhook=slack_webhook)
 

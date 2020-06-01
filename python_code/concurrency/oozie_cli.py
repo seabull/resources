@@ -88,9 +88,9 @@ def format_coord_details(job_details: Dict) -> str:
         'global_feat_ads': 'Global Feature Pipeline',
         'selfservice_performance': 'Campaign Performance SelfService',
         'selfservice_performance_gst_cntc_test': 'Perf SelfService GCH Test',
+        'daily_batch_performance': 'Campaign Performance',
     }
     slack_text = f"""
-            ```
 |{"Job Name":>32}|{"status":>11}|{"Start Time":>20}|{"Duration":>10}|{"Scheduled Time":>20}|{"Missing Dependency":>20}|
 |{"":->32}|{"":->11}|{"":->20}|{"":->10}|{"":->20}|{"":->20}|"""
 
@@ -109,6 +109,7 @@ def format_coord_details(job_details: Dict) -> str:
         #     'missing_dependency': coord_detail.get('missing_dependency', ''),
         #     'run_seq': coord_detail.get('run_seq', ''),
         # }
+        duration = ''
         if coord_detail.get("modify_ts", "").strip() != "" or coord_detail.get("end_ts", "").strip() != "":
             try:
                 start_time = oozie_str2datetime(coord_detail['start_ts'])
@@ -122,11 +123,10 @@ def format_coord_details(job_details: Dict) -> str:
                 logging.warning(f"Start or end/modify Time not found {e} - {coord_detail}")
             except KeyError as e:
                 start_time = ''
-                duration = ''
                 logging.warning(f"Start or end/modify Time not found {e} - {coord_detail}")
 
         slack_text += f"""{os.linesep}|{name:>32}|{coord_detail.get("status", "unknown"):>11}|{coord_detail.get("start_ts", ""):>20}|{str(duration):>10}|{coord_detail.get("nominal_time", ""):>20}|{coord_detail.get("missing_dependency", ""):>20}|"""
-    slack_text += "```"
+    # slack_text += "```"
     return slack_text
 
 
