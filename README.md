@@ -167,8 +167,14 @@
 
 - [spark tuning tips](https://spark.apache.org/docs/latest/tuning.html)
 
-  - [Spark Perf Tuning Checklist](https://zerogravitylabs.ca/spark-performance-tuning-checklist/)
+  - [custom listener](https://db-blog.web.cern.ch/blog/luca-canali/2017-03-measuring-apache-spark-workload-metrics-performance-troubleshooting)
 
+  - [Spark Perf Tuning Checklist](https://zerogravitylabs.ca/spark-performance-tuning-checklist/)
+  
+  - [Spark Linstener](https://dzone.com/articles/using-spark-listeners)
+  
+    - [Some examples](https://gist.github.com/hadoopsters)
+  
   - [configuration properties](https://spark.apache.org/docs/latest/configuration.html)
   
   - ``` bash
@@ -192,13 +198,13 @@
     --conf spark.ui.retainedDeadExecutors=100 
     --conf spark.rpc.netty.dispatcher.numThreads=2 
     --conf spark.eventLog.enabled=false 
-    --conf spark.history.retainedApplications=2 
+  --conf spark.history.retainedApplications=2 
     --conf spark.history.fs.cleaner.enabled=true 
     --conf spark.history.fs.cleaner.maxAge=2d 
     --class "$APPCLASS" "$APPFILE" >> "/var/log/${APPCLASS}.log" 2>&1
-  
+  --conf  spark.extraListeners=org.apache.spark.scheduler.StatsReportListener
     ```
-
+  
   - some config
   
   - ``` python
@@ -268,6 +274,19 @@
 
   - Some Tips
 
+      - Spark Native ORC: Create table MyTable ... ***USING ORC*** 
+
+      - **Nested Schema Pruning: spark.conf.set("spark.sql.optimizer.nestedSchemaPruning.enabled", true)** Prunes the nested columns (e.g. struct) if not all fields are selected. Without this config, it read **ALL** fields
+
+      - collapse projects: use .asNondeterministic in the udf
+
+      - Spark 3.0: Join Hints: 
+
+          - BROADCAST (prior versions)
+      - MERGE: Shuffle sort merge join
+          - SHUFFLE_HASH: Shuffle hash join
+      - SHUFFLE_REPLICATED_NL: Shuffle and Replicate Nested Loop join
+        
     - **spark.sql.codegen**
 
       The default value of *spark.sql.codegen* is **false**. When the value of this is true, Spark SQL will compile each query to Java bytecode very quickly. Thus, improves the performance for large queries. But the issue with codegen is that it slows down with very short queries. This happens because it has to run a compiler for each query.
@@ -285,6 +304,10 @@
       The *spark.sql.parquet.compression.codec* uses default snappy compression. Snappy is a library which for compression/decompression. It mainly aims at very high speed and reasonable compression. In most compression, the resultant file is 20 to 100% bigger than other inputs although it is the order of magnitude faster. Other possible option includes uncompressed, gzip and lzo.
 
   - [productionize spark ETL video](https://databricks.com/session/keeping-spark-on-track-productionizing-spark-for-etl)
+
+  - [Spark Metrics](http://www.hammerlab.org/2015/02/27/monitoring-spark-with-graphite-and-grafana/)
+
+  - [Spark Shuffling](https://medium.com/swlh/revealing-apache-spark-shuffling-magic-b2c304306142)
 
 ## Security
 
@@ -352,6 +375,11 @@
 - [String and StringBuffer concat out of memory](https://www.captaincasademo.com/forum/posts/list/1503.page)
 - [Java Memory Model and Garbage Collection](https://dzone.com/articles/understanding-the-java-memory-model-and-the-garbag)
 
+### Scala
+
+- [Scala Implicit design pattern](http://www.lihaoyi.com/post/ImplicitDesignPatternsinScala.html)
+- 
+
 ### Architecture
 
 - [Architectyure ketas](http://nealford.com/katas/list.html)
@@ -383,6 +411,7 @@
 - productivity tools
 
   - asciinema
+  - exa (dir/ls tool)
 
 - Notes and tips
 
@@ -398,5 +427,13 @@
 - Terminal tools
 
   - [bench](https://darrenburns.net/posts/tools/)
+  - [Tools collection](https://onethingwell.org)
+  - [The Art of command Line](https://github.com/jlevy/the-art-of-command-line)
 
-- 
+- Apache Beam
+
+  - [Data processing job using BEAM](https://www.talend.com/blog/2018/04/23/how-to-develop-a-data-processing-job-using-apache-beam-2/)  [Part2](https://www.talend.com/blog/2018/08/07/developing-data-processing-job-using-apache-beam-streaming-pipeline/)
+
+  - 
+
+    

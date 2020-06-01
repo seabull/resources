@@ -9,7 +9,7 @@
 ### Sequences
 
 - From Fluent Python, [*Fluent Python* code repository](https://github.com/fluentpython/example-code)
-
+- ![Python_Sequence](./Python_Sequence.png)
 - Container sequences
 
 `list`, `tuple`, and `collections.deque` can hold items of different types.
@@ -373,44 +373,53 @@ tuple`, `str`, and `bytes
     - Another group of one-trick lambdas that `operator` replaces are functions to pick items from sequences or read attributes from objects: `itemgetter` and `attrgetter` actually build custom functions to do that.
     
     - ```python
-    >>> metro_data = [
-      ...     ('Tokyo', 'JP', 36.933, (35.689722, 139.691667)),
-    ...     ('Delhi NCR', 'IN', 21.935, (28.613889, 77.208889)),
-      ...     ('Mexico City', 'MX', 20.142, (19.433333, -99.133333)),
-      ...     ('New York-Newark', 'US', 20.104, (40.808611, -74.020386)),
-      ...     ('Sao Paulo', 'BR', 19.649, (-23.547778, -46.635833)),
-      ... ]
-      >>>
-      >>> from operator import itemgetter
-      >>> for city in sorted(metro_data, key=itemgetter(1)):
-      ...     print(city)
-      ...
-      ('Sao Paulo', 'BR', 19.649, (-23.547778, -46.635833))
-      ('Delhi NCR', 'IN', 21.935, (28.613889, 77.208889))
-      ('Tokyo', 'JP', 36.933, (35.689722, 139.691667))
-      ('Mexico City', 'MX', 20.142, (19.433333, -99.133333))
-      ('New York-Newark', 'US', 20.104, (40.808611, -74.020386))
-      >>> from operator import methodcaller
-      >>> s = 'The time has come'
-      >>> upcase = methodcaller('upper')
-      >>> upcase(s)
-      'THE TIME HAS COME'
-      >>> hiphenate = methodcaller('replace', ' ', '-')
-      >>> hiphenate(s)
-      'The-time-has-come'
+      
       ```
+    >>> metro_data = [
+    >>>   ...     ('Tokyo', 'JP', 36.933, (35.689722, 139.691667)),
+    >>> ...     ('Delhi NCR', 'IN', 21.935, (28.613889, 77.208889)),
+    >>>   ...     ('Mexico City', 'MX', 20.142, (19.433333, -99.133333)),
+    >>>   ...     ('New York-Newark', 'US', 20.104, (40.808611, -74.020386)),
+    >>>   ...     ('Sao Paulo', 'BR', 19.649, (-23.547778, -46.635833)),
+    >>>   ... ]
+    >>>
+    >>> from operator import itemgetter
+    >>> for city in sorted(metro_data, key=itemgetter(1)):
+    >>>   ...     print(city)
+    >>>   ...
+    >>>   ('Sao Paulo', 'BR', 19.649, (-23.547778, -46.635833))
+    >>>   ('Delhi NCR', 'IN', 21.935, (28.613889, 77.208889))
+    >>>   ('Tokyo', 'JP', 36.933, (35.689722, 139.691667))
+    >>>   ('Mexico City', 'MX', 20.142, (19.433333, -99.133333))
+    >>>   ('New York-Newark', 'US', 20.104, (40.808611, -74.020386))
+    >>> from operator import methodcaller
+    >>> s = 'The time has come'
+    >>> upcase = methodcaller('upper')
+    >>> upcase(s)
+    >>>   'THE TIME HAS COME'
+    >>> hiphenate = methodcaller('replace', ' ', '-')
+    >>> hiphenate(s)
+    >>>   'The-time-has-come'
+    >>>
+    >>>   ```
+    >>> 
+    >>>   ```
     
     - ## Freezing Arguments with functools.partial
     
     - ```python
       >>> from operator import mul
       >>> from functools import partial
-    >>> triple = partial(mul, 3)  # 1
-      >>> triple(7)  # 2
-    21
-      >>> list(map(triple, range(1, 10)))  # 3
-      [3, 6, 9, 12, 15, 18, 21, 24, 27]
       ```
+    >>> triple = partial(mul, 3)  # 1
+    >>> triple(7)  # 2
+    >>> 21
+    >>> list(map(triple, range(1, 10)))  # 3
+    >>>   [3, 6, 9, 12, 15, 18, 21, 24, 27]
+    >>>
+    >>>   ```
+    >>> 
+    >>>   ```
     
     - 
     
@@ -817,9 +826,68 @@ tuple`, `str`, and `bytes
             ('spam',)
             ```
       
-            
+        - The `__getattr__` method is invoked by the interpreter when attribute lookup fails. In simple terms, given the expression `my_obj.x`, Python checks if the `my_obj` instance has an attribute named `x`; if not, the search goes to the class (`my_obj.__class__`), and then up the inheritance graph.[2](https://learning.oreilly.com/library/view/fluent-python/9781491946237/ch10.html#idm139636514050864) If the `x` attribute is not found, then the `__getattr__` method defined in the class of `my_obj` is called with `self` and the name of the attribute as a string (e.g., `'x'`).
+        
+        - The awesome zip: 
+        
+          ```python
+          >>> zip(range(3), 'ABC')  
+          <zip object at 0x10063ae48>
+          >>> list(zip(range(3), 'ABC'))  
+          [(0, 'A'), (1, 'B'), (2, 'C')]
+          >>> list(zip(range(3), 'ABC', [0.0, 1.1, 2.2, 3.3]))  
+          [(0, 'A', 0.0), (1, 'B', 1.1), (2, 'C', 2.2)]
+          >>> from itertools import zip_longest  
+          >>> list(zip_longest(range(3), 'ABC', [0.0, 1.1, 2.2, 3.3], fillvalue=-1))
+          [(0, 'A', 0.0), (1, 'B', 1.1), (2, 'C', 2.2), (-1, -1, 3.3)]
+          ```
 
 
+
+- Multiple Inheritance
+
+  - Subclassing built-in types like `dict` or `list` or `str` directly is error-prone because the built-in methods mostly ignore user-defined overrides. Instead of subclassing the built-ins, derive your classes from the [`collections`](http://docs.python.org/3/library/collections.html) module using `UserDict`, `UserList`, and `UserString`, which are designed to be easily extended.
+
+  - ```Python
+    >>> class AnswerDict(dict):
+    ...     def __getitem__(self, key):  
+    ...         return 42
+    ...
+    >>> ad = AnswerDict(a='foo')  
+    >>> ad['a']  
+    42
+    >>> d = {}
+    >>> d.update(ad)  
+    >>> d['a']  
+    'foo'
+    >>> d
+    {'a': 'foo'}
+    ```
+
+  - Method Invovation Order (MRO)
+
+  - ```Python
+    >>> bool.__mro__  #1
+    (<class 'bool'>, <class 'int'>, <class 'object'>)
+    >>> def print_mro(cls):  #2
+    ...     print(', '.join(c.__name__ for c in cls.__mro__))
+    ...
+    >>> print_mro(bool)
+    bool, int, object
+    >>> from frenchdeck2 import FrenchDeck2
+    >>> print_mro(FrenchDeck2)  #3
+    FrenchDeck2, MutableSequence, Sequence, Sized, Iterable, Container, object
+    >>> import numbers
+    >>> print_mro(numbers.Integral)  #4
+    Integral, Rational, Real, Complex, Number, object
+    >>> import io  #5
+    >>> print_mro(io.BytesIO)
+    BytesIO, _BufferedIOBase, _IOBase, object
+    >>> print_mro(io.TextIOWrapper)
+    TextIOWrapper, _TextIOBase, _IOBase, object
+    ```
+
+  - 
 
 ### Package and Import
 
@@ -1015,3 +1083,8 @@ This test function is similar to the success case, except it is now returning a 
 
 - [Run Shell commands from Python](https://janakiev.com/blog/python-shell-commands/)
 - [asyncio stream stin and stdout](https://kevinmccarthy.org/2016/07/25/streaming-subprocess-stdin-and-stdout-with-asyncio-in-python/)
+- [python faster](https://martinheinz.dev/blog/13)
+- Logging
+  - [Logging QueueHandler with dictConfig](https://medium.com/@rob.blackbourn/how-to-use-python-logging-queuehandler-with-dictconfig-1e8b1284e27a)
+  - [Logging insights](https://juejin.im/post/5b0a3003f265da0dcd0b684e)
+

@@ -80,7 +80,7 @@ TABLE_LIST = (f"{DB_NAME}.active_guest_exposure",
 def format_table_info(data: Dict) -> str:
     # pprint(data)
     slack_text = f"""
-|{"Table Name":>40}|{"Date":>12}|{"Time":>6}|{"Max Partition":>13}|{"Frequency":>11}|{"Status":>14}|
+|{"Table Name":>36}|{"Date":>12}|{"Time":>6}|{"Max Partition":>13}|{"Frequency":>9}|{"Status":>14}|
 |{"":->40}|{"":->12}|{"":->6}|{"":->13}|{"":->11}|{"":->14}|"""
     for name, tbl in data.items():
         if tbl.get("done_flag", None) is None or tbl["done_flag"] == "Unknown":
@@ -88,7 +88,7 @@ def format_table_info(data: Dict) -> str:
         else:
             done_status = "Completed"
 
-        slack_text += f"""{os.linesep}|{name:>40}|{tbl.get("update_date", ""):>12}|{tbl["update_time"]:>6}|{tbl["max_partition"]:>13}|{tbl["load_frequency"]:>11}|{done_status:>14}|"""
+        slack_text += f"""{os.linesep}|{name:>36}|{tbl.get("update_date", ""):>12}|{tbl["update_time"]:>6}|{tbl["max_partition"]:>13}|{tbl["load_frequency"]:>9}|{done_status:>14}|"""
     # slack_text += "```"
     return slack_text
 
@@ -680,6 +680,27 @@ def main() -> None:
         logging.error(f"Error sending slack message: {status}")
     else:
         logging.info(f"Successfully sent slack message")
+
+    # status = send_slack(json_data={
+    #     "channel": "datasciences-roundel-ops",
+    #     "text": f"""{message_header}
+    # ```{table_info_str}```""",
+    #     },
+    #         webhook=slack_webhook)
+    # if status != 200:
+    #     logging.error(f"Error sending table info slack message: {status}")
+    # else:
+    #     logging.info(f"Successfully sent table info slack message")
+    # status = send_slack(json_data={
+    #     "channel": "datasciences-roundel-ops",
+    #     "text": f"""{job_header}
+    # ```{coord_job_str}```""",
+    #     },
+    #         webhook=slack_webhook)
+    # if status != 200:
+    #     logging.error(f"Error sending job info slack message: {status}")
+    # else:
+    #     logging.info(f"Successfully sent job info slack message")
 
     # start = time.perf_counter()
     # results_sync = run_commands(shell_commands)
