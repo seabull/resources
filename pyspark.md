@@ -50,21 +50,53 @@
 
   - [spark profiling tools](https://github.com/LucaCanali/Miscellaneous/blob/master/Spark_Notes/Tools_Spark_Linux_FlameGraph.md)
 
+  - [Spark top 5 mistakes](file://Spark_top5mistakes.pdf)
+
+      - Keep under 5 cores per executor for max HDFS throughput
+
+      - --executor-memory controls the heap size
+
+      - Need some overhead (controlled by
+
+          spark.yarn.executor.memory.overhead) for off heap memory
+
+          Default is **max(384MB, .07 * spark.executor.memory)**
+
+          [Spark Tuning blog](http://blog.cloudera.com/blog/2015/03/how- to-tune-your-apache-spark-jobs-part-2/)
+  
+      - If your number of partitions is less than 2000, but close enough to it, bump that number up to be slightly higher than 2000.
+  
+          - 2 GB limit on Spark shuffle blocks
+  
+      - How many partitions should I have: Rule of thumb is around 128 MB per partition
+  
+          - In Spark SQL, increase the value of spark.sql.shuffle.partitions
+          - In regular Spark applications, use rdd.repartition() or rdd.coalesce()
+  
+      - DAG Management
+  
+          - Shuffles are to be avoided
+          - ReduceByKey over GroupByKey
+          - TreeReduce (do more on executor) over Reduce (do all things on driver)
+          - Use Complex Types
+  
+  - [threading](https://medium.com/@rbahaguejr/threaded-tasks-in-pyspark-jobs-d5279844dac0), [pyspark parallelization](https://towardsdatascience.com/3-methods-for-parallelization-in-spark-6a1a4333b473)
+  
   - Some background on Spark EventLog/applicationHistory files
-
+  
     - The Spark driver logs into job workload/perf metrics in the spark.evenLog.dir directory as JSON files.
-
+  
     - There is one file per application, the file names contains the application id (therefore including a timestamp) application_1502789566015_17671.
-
+  
     - While the application is running the file as a suffix .inprogress, the suffix is removed if the application gracefully stops. This means that the .inprogress suffix can stick to the file in certains cases, such as driver crashes.
-
+  
     - Typically these files are read with the Web UI and the history server.
-
+  
     - EventLog JSON files can also be read directly.
-
-    - Spark Event Log records info on processed jobs/stages/tasks. See details at [<https://spark.apache.org/docs/latest/monitoring.html>]
+  
+  - Spark Event Log records info on processed jobs/stages/tasks. See details at [<https://spark.apache.org/docs/latest/monitoring.html>]
       This feature is activated and configured with spark config options. This is an example:
-
+  
       ```
       spark.eventLog.enabled=true
       spark.eventLog.dir=hdfs:///user/spark/applicationHistory
@@ -100,6 +132,8 @@
   ```
 
 - [Pyspark Efficient UDF](https://www.inovex.de/blog/efficient-udafs-with-pyspark/)
+
+- [Pyspark Pandas UDF vectorized](https://databricks.com/blog/2017/10/30/introducing-vectorized-udfs-for-pyspark.html)
 
 - Dataframe Methods
 
@@ -176,7 +210,7 @@ withWatermark(eventTime, delayThreshold)
 
 ```
 
-- functions
+- functions (*pandas_udf*)
 
   ``` python
   # pyspark.sql.functions module
@@ -497,4 +531,128 @@ min(*cols) -
 pivot(pivot_col, values=None) - Pivots a column of the current DataFrame and perform the specified aggregation. There are two versions of pivot function: one that requires the caller to specify the list of distinct values to pivot on, and one that does not. The latter is more concise but less efficient, because Spark needs to first compute the list of distinct values internally.
 sum(*cols) - 
 ```
+
+#### Configurations:
+
+- SHUFFLE_MIN_NUM_PARTS_TO_HIGHLY_COMPRESS (2.4.0), sql.shuffle.partitions =2001
+
+- convertMetastoreOrc
+
+- spark.sql.
+
+- skew: df.repartition(col("col1")), add salt if still skewed
+
+  ```Scala
+  def estimatePartitionCount(id: String, bigDF: DataFrame, dfCount: Long): Int = {
+    val numRows = 5000
+    val someRows = bigDF.head(numRows)
+    val sizeOfRows = getSizeInBytes(someRows)
+    val sizePerRow = sizeOfRows / numRows
+    val partitionSize = 1024 * 1024 * 128 // 128MB block size
+    val partitionCount = ( dfCount * sizePerRow / partitionSize ).toInt
+    val partitionCountLarge = Math.max(partitionCount, 10)
+    Math.min(partitionCountLarge, 2000)
+  }
+  ```
+
+- the Query optmizer **can't optimize chained calls to withColumn()** (or withColumnRenamed()) the same as .select()
+  Each .withColumn call:
+  internally checks to see if you are renaming an existing column
+  then calls .select() with the new set of columns
+  which creates a new Dataset
+  which initiates an analysis of query plan
+  **With complex query plan, repeated calls to .withColumn() can result in the query optmization process taking a *long long* time**
+
+- UDF: Catalyst optimizer makes efficient use of UDFs that are both
+
+  - Cheap
+  - Deterministic
+
+  when optmizing, Catalyst could choose to:
+
+  - invoke the UDF multiple times per record when the original query only called the UDF once, or
+  - Eliminate duplicate invocations in the original query
+
+  see [SPARK-17728](https://issues.apache.org/jira/browse/SPARK-17728)
+
+  If UDF is expensive and deterministic, do *.cache* before any other transformation or filtering.
+
+  Mark nondeterminstic UDFs with *.nondeterministic*
+
+### Spark Optimization/Tuning
+
+- Slow Query
+  - Examine query plan: query completed (use Spark UI/SQL), query not run yet (use .explain)
+  - Is optimized logical plan too big?
+
+### Spark 3.0 New
+
+- Performance
+
+  - Adaptive Query Execution: Rule+Cost+**Runtime**
+    - Dynamically switch join strategies
+    - Dynamically coalesce shuffle partitions
+    - Dynamically optimize skew joins (split large partitions into multiples in downstream stages)
+    - Configs: (default)
+      - ***spark.sql.adaptive.enabled***(false) 
+      - ***spark.sql.adaptive.coalescePartitions.enabled***(true)
+      - ***spark.sql.adaptive.coalescePartitions.minPartitionNum***(Default Paralleism)
+      - ***spark.sql.adaptive.coalescePartitions.initialPartitionNum***(200)
+      - ***spark.sql.adaptive.advisoryPartitionSizeInBytes***(64MB)
+    - Dynamic Partition Pruning
+      - Filter not on a partition column, broadcast to 
+      - spark.sql.optimizer.dynamicPartitionPruning.enabled=true
+
+- Join Optimization Hints
+
+  - Broadcast (Exist in old versions): One side to be small, no shuffle or sort, fast
+  - Shuffle Hash: Shuffle no sort, handle large tables, OOM if data skewed
+  - Sort-merge: Robust, handle data size, shuffle and sort, slow if table small
+  - Cartesian product: no join keys
+
+- Useability
+
+  - Explain plan **Formatted**
+  - Structured Streaming UI
+
+- Pandas UDFs (aka Vectorized UDFs)
+
+  - Python type hints
+
+  ```Python
+  @pandas_udf('long')
+  def pandas_plus_one(s: pd.Series) -> pd.Series:
+    return s + 1
+  ```
+
+- Data Source V2
+
+  - Catalog
+  - Batch and Stream unified APIs
+  - Performance improvement
+
+- Spark Core
+
+  - Invalid SparkConf will fail (2.x won't)
+  - Datasets/DataFrames, SQL
+    - Argument order of TRIM reversed. TRIM(trimStr, Str) -> TRIM(str, trimStr)
+  - SparkML
+    - StringIndexer, Binarizer, StopWordRemover, QuatileDiscretizer
+
+- Spark Ecosystem
+
+  - Project Hydrongen: support ML frameworks
+  - Delta: 
+
+- Delta Lakes
+
+- Delta Engine
+
+  - Photon: new execution engine written in C++ Optimize performance
+    - Vectorization: Data leve optimization and Instruction Level optimiszation
+    - 
+
+
+
+
 

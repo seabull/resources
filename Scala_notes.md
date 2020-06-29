@@ -1,4 +1,4 @@
-#### Pattern Matching
+Pattern Matching
 
 - assignment
 
@@ -96,6 +96,28 @@
 
 - collect, collectFirst, partition, groupBy, lift (in addition to map, filter, flatMap)
 
+  ```Scala
+  // collect as combination of map and filter
+  // collectFirst as collect with find
+  // partition as collection chunking
+  // groupBy for constructing Maps
+  // lift for tuning function-that-throws-exception into function-that-returns-an-Option
+  val animals: Seq[Animal]
+  animals.filter(_.age<10).map(_.name)
+  animals.filter(_.age<10).filter(_.species == Cow).map(_.name)
+  val x: Seq[String] = animals.collect {
+    case Animal(name, age, _) if age < 10 => name
+  }
+  val xx:Seq[Animal] = animals.collect {
+    case animal @ Animal(name, age, _) if age < 10 => animal
+  }
+  
+  animal(100)  // exception out of bound
+  animal.lift(100) // returns None, i.e. Option[Animal]
+  ```
+
+  
+
 - Sorting collections
 
   - Sorted, sortWith, sortBy
@@ -162,6 +184,21 @@
   
   
   ```
+  
+- Trait Stacking and abstract override
+
+  ```scala
+  trait Animal {
+    def liveOneDay: Seq[String]
+  }
+  trait FlyingAnimal extends Animal {
+    abstract override def liveOneDay: Seq[String] = super.liveOneDay :+ "fly"
+  }
+  ```
+
+  
+
+
 
 #### Function Declaration Tricks
 
@@ -263,7 +300,21 @@
   val date = handling(classOf[PE], classOf[java.lang.NullPointerException]) by (_ => new Date) apply parseDate
   ```
 
-- 
+- Partial application, currying
+
+  ```scala
+  object DataAccess {
+    def saveCustomer(databaseConnection: DatabaseConnection)(c: Customer) = ???
+  }
+  val saveCustomer: Customer => Customer = DataAccess.saveCustomer(dbConnection)
+  
+  // similarly
+  class DataAccessClass(databaseConnection: DatabaseConnection) {
+    def saveCustomer(c: Customer): Customer = ???
+  }
+  ```
+
+  
 
 #### Advanced
 
@@ -738,7 +789,122 @@
 
     Self-types, might be used to enforce ordering of [low-priority implicits](https://kubuszok.com/2018/implicits-type-classes-and-extension-methods-part-4/#troublesome-cases):
 
-    
+  - Functional Programming in Scala
+  
+    - Exception Handling
+  
+      - Option
+  
+        - A common pattern is to transform an Option via calls to ***map, flatMap***, and/or ***filter***, and then use ***getOrElse*** to do error handling at the end
+  
+          ```scala
+          case class Employee(name: String, department: String)
+          def lookupByName(name: String): Option[Employee] = ...
+          val joeDepartment: Option[String] =lookupByName("Joe").map(_.department)
+          
+          val dept: String = lookupByName("Joe").map(_.dept).filter(_ != "Accounting").getOrElse("Default Dept")
+          ```
+  
+        - A common idiom is to do o.getOrElse(throw new Exception("FAIL")) to convert the None case of an Option back to an exception. 
+  
+    - Pure Functional State
+  
+      - Making stateful APIs pure
+  
+        - having the API *compute* the next state rather than actually mutate anything, e.g.
+  
+          ```Scala
+          class Foo {
+            private var s: FooState = ...
+            def bar: Bar
+            def baz: Int
+          }
+          // ==>
+          trait Foo {
+            def bar: (Bar, Foo)
+            def baz: (Int, Foo)
+          }
+          ```
+  
+        - Functions of this type are called ***state actions*** or ***state transitions*** because they transform RNG states from one to the next. These state actions can be combined using *combinators*, which are higher-order functions that we’ll define below
+  
+          ```Scala
+          // State actions or state transition
+          type Rand[+A] = RNG => (A, RNG)
+          
+          // 
+          def unit[A](a: A): Rand[A] =
+            rng => (a, rng)
+          //There’s also map for transforming the output of a state action without modifying the state itself. Remember, Rand[A] is just a type alias for a function type RNG => (A, RNG), so this is just a kind of function composition:
+          def map[A,B](s: Rand[A])(f: A => B): Rand[B] =
+            rng => {
+              val (a, rng2) = s(rng)
+              (f(a), rng2)
+            }
+          // A general state actions map
+          def map[S,A,B](a: S => (A,S))(f: A => B): S => (B,S)
+          // general form of Rand[+A]
+          type State[S,+A] = S => (A,S)
+          type Rand = State[RNG, A]
+          // we could write its own class
+          case class State[S,+A](run: S => (A,S))
+          case class State[S, +A](run: S => (A, S)) {
+            def map[B](f: A => B): State[S, B] =
+              flatMap(a => unit(f(a)))
+            def map2[B,C](sb: State[S, B])(f: (A, B) => C): State[S, C] =
+              flatMap(a => sb.map(b => f(a, b)))
+            def flatMap[B](f: A => State[S, B]): State[S, B] = State(s => {
+              val (a, s1) = run(s)
+              f(a).run(s1)
+            })
+          }
+          
+          object State {
+            type Rand[A] = State[RNG, A]
+          
+            def unit[S, A](a: A): State[S, A] =
+              State(s => (a, s))
+          
+            // The idiomatic solution is expressed via foldRight
+            def sequenceViaFoldRight[S,A](sas: List[State[S, A]]): State[S, List[A]] =
+              sas.foldRight(unit[S, List[A]](List()))((f, acc) => f.map2(acc)(_ :: _))
+          
+            // This implementation uses a loop internally and is the same recursion
+            // pattern as a left fold. It is quite common with left folds to build
+            // up a list in reverse order, then reverse it at the end.
+            // (We could also use a collection.mutable.ListBuffer internally.)
+            def sequence[S, A](sas: List[State[S, A]]): State[S, List[A]] = {
+              def go(s: S, actions: List[State[S,A]], acc: List[A]): (List[A],S) =
+                actions match {
+                  case Nil => (acc.reverse,s)
+                  case h :: t => h.run(s) match { case (a,s2) => go(s2, t, a :: acc) }
+                }
+              State((s: S) => go(s,sas,List()))
+            }
+          
+            // We can also write the loop using a left fold. This is tail recursive like the
+            // previous solution, but it reverses the list _before_ folding it instead of after.
+            // You might think that this is slower than the `foldRight` solution since it
+            // walks over the list twice, but it's actually faster! The `foldRight` solution
+            // technically has to also walk the list twice, since it has to unravel the call
+            // stack, not being tail recursive. And the call stack will be as tall as the list
+            // is long.
+            def sequenceViaFoldLeft[S,A](l: List[State[S, A]]): State[S, List[A]] =
+              l.reverse.foldLeft(unit[S, List[A]](List()))((acc, f) => f.map2(acc)( _ :: _ ))
+          
+            def modify[S](f: S => S): State[S, Unit] = for {
+              s <- get // Gets the current state and assigns it to `s`.
+              _ <- set(f(s)) // Sets the new state to `f` applied to `s`.
+            } yield ()
+          
+            def get[S]: State[S, S] = State(s => (s, s))
+          
+            def set[S](s: S): State[S, Unit] = State(_ => ((), s))
+          }
+          
+          ```
+  
+          
 
 #### Shapeless
 
@@ -915,12 +1081,25 @@
 
   - [Stackoverflow disjunction union types](https://stackoverflow.com/questions/3508077/how-to-define-type-disjunction-union-types)
   - [Enums](https://pedrorijo.com/blog/scala-enums/)
+  - [var/val and immutable/mutable collections](https://stackoverflow.com/questions/11386559/val-mutable-versus-var-immutable-in-scala)
   - [Type Level programming explain](http://gigiigig.github.io/)
   - [shapeless for cross layer conversion blog](https://blog.softwaremill.com/how-not-to-use-shapeless-for-cross-layer-conversions-in-scala-9ac36363aed9)
   - [Type Level Programming in Shapeless](https://apocalisp.wordpress.com/2010/06/08/type-level-programming-in-scala/)
+  - [Refined in Practice](https://kwark.github.io/refined-in-practice/#1)
   - [spark tips](https://cm.engineering/10-tips-in-writing-a-spark-job-in-scala-cc837149a173)
   - [Denpenency Injection](http://jonasboner.com/real-world-scala-dependency-injection-di/)
   - [Return current type](https://tpolecat.github.io/2015/04/29/f-bounds.html)
   - [Concurrency](https://blog.matthewrathbone.com/2017/03/28/scala-concurrency-options.html)
+  - [Scala 3 ADT](https://blog.oyanglul.us/scala/dotty/en/gadt)
+  - [pre-commit custom hooks for scala](https://blog.softwaremill.com/reusable-pre-commit-hooks-in-scala-projects-d8bb327047ee)
+  - Sbt release
+    - [Painless release with sbt](https://blog.byjean.eu/2015/07/10/painless-release-with-sbt.html)
+    - [giter8 template](http://www.foundweekends.org/giter8/setup.html)
   - LIbraries
     - [JSON Encoding using argonaut-shapeless](https://github.com/alexarchambault/argonaut-shapeless)
+  
+- Blogs
+
+  - [OuYang](https://blog.oyanglul.us)
+  - [Batey](http://www.batey.info)
+

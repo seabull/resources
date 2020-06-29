@@ -167,8 +167,10 @@
 
 - [spark tuning tips](https://spark.apache.org/docs/latest/tuning.html)
 
-  - [custom listener](https://db-blog.web.cern.ch/blog/luca-canali/2017-03-measuring-apache-spark-workload-metrics-performance-troubleshooting)
+  - [Locality](http://www.russellspitzer.com/2017/09/01/Spark-Locality/)
 
+  - [custom listener](https://db-blog.web.cern.ch/blog/luca-canali/2017-03-measuring-apache-spark-workload-metrics-performance-troubleshooting)
+  
   - [Spark Perf Tuning Checklist](https://zerogravitylabs.ca/spark-performance-tuning-checklist/)
   
   - [Spark Linstener](https://dzone.com/articles/using-spark-listeners)
@@ -196,9 +198,9 @@
     --conf spark.sql.ui.retainedExecutions=100 
     --conf spark.streaming.ui.retainedBatches=10000 
     --conf spark.ui.retainedDeadExecutors=100 
-    --conf spark.rpc.netty.dispatcher.numThreads=2 
+  --conf spark.rpc.netty.dispatcher.numThreads=2 
     --conf spark.eventLog.enabled=false 
-  --conf spark.history.retainedApplications=2 
+    --conf spark.history.retainedApplications=2 
     --conf spark.history.fs.cleaner.enabled=true 
     --conf spark.history.fs.cleaner.maxAge=2d 
     --class "$APPCLASS" "$APPFILE" >> "/var/log/${APPCLASS}.log" 2>&1
@@ -274,19 +276,20 @@
 
   - Some Tips
 
-      - Spark Native ORC: Create table MyTable ... ***USING ORC*** 
+    - Spark Native ORC: Create table MyTable ... ***USING ORC*** 
 
-      - **Nested Schema Pruning: spark.conf.set("spark.sql.optimizer.nestedSchemaPruning.enabled", true)** Prunes the nested columns (e.g. struct) if not all fields are selected. Without this config, it read **ALL** fields
+    - **Nested Schema Pruning: spark.conf.set("spark.sql.optimizer.nestedSchemaPruning.enabled", true)** Prunes the nested columns (e.g. struct) if not all fields are selected. Without this config, it read **ALL** fields
 
-      - collapse projects: use .asNondeterministic in the udf
+    - collapse projects: use .asNondeterministic in the udf
 
-      - Spark 3.0: Join Hints: 
+    - Spark 3.0: Join Hints: 
 
-          - BROADCAST (prior versions)
-      - MERGE: Shuffle sort merge join
-          - SHUFFLE_HASH: Shuffle hash join
-      - SHUFFLE_REPLICATED_NL: Shuffle and Replicate Nested Loop join
+        - BROADCAST (prior versions)
+    - MERGE: Shuffle sort merge join
         
+        - SHUFFLE_HASH: Shuffle hash join
+    - SHUFFLE_REPLICATED_NL: Shuffle and Replicate Nested Loop join
+      
     - **spark.sql.codegen**
 
       The default value of *spark.sql.codegen* is **false**. When the value of this is true, Spark SQL will compile each query to Java bytecode very quickly. Thus, improves the performance for large queries. But the issue with codegen is that it slows down with very short queries. This happens because it has to run a compiler for each query.
@@ -395,13 +398,28 @@
 - [Terminal Setup](https://medium.freecodecamp.org/how-you-can-style-your-terminal-like-medium-freecodecamp-or-any-way-you-want-f499234d48bc)
   - [Nerd Fonts](https://github.com/ryanoasis/nerd-fonts#font-installation)
   - [Powerlevel9k font](https://github.com/bhilburn/powerlevel9k/wiki/Install-Instructions#step-1-install-powerlevel9k)
-
+- [SCM Breeze](https://github.com/scmbreeze/scm_breeze)
+  
 - VS Code Extensions
   - [GitLens](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
+  
   - Golang
-  - Dash
+  
+- Dash
+  
   - Docker
-
+  
+  - [VScode settings](https://dev.to/macmacky/my-vscode-shortcuts-settings-and-extensions-for-productivity-3chd)
+  
+  - Ligatures setup
+  
+    - ```bash
+      brew tap homebrew/cask-fonts
+      brew cask install font-fira-code
+      ```
+  
+      
+  
 - [Architecture Resources](https://developertoarchitect.com)
 
 - [Code City](https://wettel.github.io/codecity-download.html)
