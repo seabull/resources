@@ -276,6 +276,8 @@
 
   - Some Tips
 
+      - Spark 定义的 NarrowDependency 其实是 “each partition of the parent RDD is used by at most one partition of the child RDD“
+
     - Spark Native ORC: Create table MyTable ... ***USING ORC*** 
 
     - **Nested Schema Pruning: spark.conf.set("spark.sql.optimizer.nestedSchemaPruning.enabled", true)** Prunes the nested columns (e.g. struct) if not all fields are selected. Without this config, it read **ALL** fields
@@ -286,10 +288,10 @@
 
         - BROADCAST (prior versions)
     - MERGE: Shuffle sort merge join
-        
+
         - SHUFFLE_HASH: Shuffle hash join
     - SHUFFLE_REPLICATED_NL: Shuffle and Replicate Nested Loop join
-      
+
     - **spark.sql.codegen**
 
       The default value of *spark.sql.codegen* is **false**. When the value of this is true, Spark SQL will compile each query to Java bytecode very quickly. Thus, improves the performance for large queries. But the issue with codegen is that it slows down with very short queries. This happens because it has to run a compiler for each query.
@@ -311,6 +313,8 @@
   - [Spark Metrics](http://www.hammerlab.org/2015/02/27/monitoring-spark-with-graphite-and-grafana/)
 
   - [Spark Shuffling](https://medium.com/swlh/revealing-apache-spark-shuffling-magic-b2c304306142)
+
+  - [Spark AI Summit 2020](https://databricks.com/sparkaisummit/north-america-2020/agenda)
 
 ## Security
 
@@ -396,10 +400,23 @@
 - [Cookiecutter template](https://github.com/audreyr/cookiecutter)
 
 - [Terminal Setup](https://medium.freecodecamp.org/how-you-can-style-your-terminal-like-medium-freecodecamp-or-any-way-you-want-f499234d48bc)
-  - [Nerd Fonts](https://github.com/ryanoasis/nerd-fonts#font-installation)
-  - [Powerlevel9k font](https://github.com/bhilburn/powerlevel9k/wiki/Install-Instructions#step-1-install-powerlevel9k)
-- [SCM Breeze](https://github.com/scmbreeze/scm_breeze)
   
+  - [Nerd Fonts](https://github.com/ryanoasis/nerd-fonts#font-installation)
+  
+- [Powerlevel9k font](https://github.com/bhilburn/powerlevel9k/wiki/Install-Instructions#step-1-install-powerlevel9k)
+  - [SCM Breeze](https://github.com/scmbreeze/scm_breeze)
+  - [Starship](https://starship.rs/guide/)
+  - [Fish](https://medium.com/almoullim/from-bash-to-zsh-to-fish-e432f1e1b9f8)
+  
+- Terminal tools
+
+  - [bench](https://darrenburns.net/posts/tools/)
+  - [Tools collection](https://onethingwell.org)
+  - [The Art of command Line](https://github.com/jlevy/the-art-of-command-line)
+  - df, ag, fzf, Z, ripgrep(rg), htop, glances, ctop, lazydocker, tree, exa, [bat](https://github.com/sharkdp/bat),
+  - httpie, tldr( similar to man), [ncdu](https://dev.yorhel.nl/ncdu)  
+  - [bash strict mode](http://redsymbol.net/articles/unofficial-bash-strict-mode/)
+
 - VS Code Extensions
   - [GitLens](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
   
@@ -440,13 +457,11 @@
     --hiveconf hive.execution.engine=mr
     ```
 
+- Machine Learning
+
+  - https://www.jonkrohn.com/talks
+
 - [Shellcheck](https://github.com/koalaman/shellcheck)
-
-- Terminal tools
-
-  - [bench](https://darrenburns.net/posts/tools/)
-  - [Tools collection](https://onethingwell.org)
-  - [The Art of command Line](https://github.com/jlevy/the-art-of-command-line)
 
 - Apache Beam
 

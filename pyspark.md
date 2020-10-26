@@ -50,6 +50,8 @@
 
   - [spark profiling tools](https://github.com/LucaCanali/Miscellaneous/blob/master/Spark_Notes/Tools_Spark_Linux_FlameGraph.md)
 
+  - [partition](https://mungingdata.com/apache-spark/partitionby/)
+
   - [Spark top 5 mistakes](file://Spark_top5mistakes.pdf)
 
       - Keep under 5 cores per executor for max HDFS throughput
@@ -61,7 +63,7 @@
           spark.yarn.executor.memory.overhead) for off heap memory
 
           Default is **max(384MB, .07 * spark.executor.memory)**
-
+  
           [Spark Tuning blog](http://blog.cloudera.com/blog/2015/03/how- to-tune-your-apache-spark-jobs-part-2/)
   
       - If your number of partitions is less than 2000, but close enough to it, bump that number up to be slightly higher than 2000.
@@ -542,6 +544,10 @@ sum(*cols) -
 
 - skew: df.repartition(col("col1")), add salt if still skewed
 
+  - look for large variance in memory usage within a job
+  - executor missing heartbeat
+  - check partition sizes of RDD while debugging to confirm
+
   ```Scala
   def estimatePartitionCount(id: String, bigDF: DataFrame, dfCount: Long): Int = {
     val numRows = 5000
@@ -584,6 +590,99 @@ sum(*cols) -
 - Slow Query
   - Examine query plan: query completed (use Spark UI/SQL), query not run yet (use .explain)
   - Is optimized logical plan too big?
+  
+- Code cache is full: add more driver memory, tune code cache,
+
+  - add the following Java option to **spark.driver.extraOptions**
+
+    - ``` -XX:+PrintCodeCache -XX:+CITime```
+
+  - Tuning code cache
+
+    - ```scala
+      -XX:+UseCodeCacheFlushing
+      -XX:InitialCodeCacheSize=33554432 // 32m
+      // flushing is triggered when (reserved - min free) is used
+      -XX:ReservedCodeCacheSize=536870912 //max size 512m
+      -XX:CodeCacheMinimusFreeSpace=52428800 // 50m
+      ```
+
+- Codegen failed because generated code > 64K
+
+  - Symptom: org.codehaus.janino.JaninoRuntimeException: Code of method XXX of class YYY grows beyond 64 KB
+  - Try: make big query smaller (checkpointing), or, disable codegen for everything
+  - Debug: df.debugCodegen()
+  - Debug Rule based optimization: RuleExecutor.resetMetrics(), then RuleExecutor.dumpTimeSpend()
+
+- Broadcase Join: Spark uses the driver to broadcast, it first does a collect and then broadcast to executors. So driver needs to have enough memory
+
+  - Table A join B: Generally, **The more cores you have, the better performance of Sort Merge Joins (SMJ). The larger A is, the better performance from Broadcast Hash Joins (BHJ)**
+
+- Hadoop Profiler (github.com/über-common/jvm-profiler)
+
+- Spark listener
+
+- Kryo Serializer:
+
+  - set spark.serializer to org.apache.spark.serializer.KryiSerializer
+  - Register avro schemas to spark conf (sparkConf.registerAvroSchemas())
+  - Register all classes which are needed while doinig spark transformation
+    - use spark.kryo.classesToRegister
+    - use spark.kryo.registrationRequired to find missing classes
+
+- Off heap memory:
+
+  - **Symptom**: container killed by YARN for exceeding memory limits X GB of X GB physical memory used. Consider boosting ***spark.yarn.executor.memoryOverhead***
+
+- Parameters:
+
+  - spark.driver.cores
+  - spark.driver.memory
+  - Executor-memory
+  - Executor-cores
+  - spark.cores.max
+  - Num_executors = total_cores/num_cores
+  - Num_partitions
+  - Too much memory per executor can result in excessive GC delays
+  - too little memory can lose benefits from running multiple tasks in a single JVM
+  - Look at stats (network, CPU, memory, etc and teak to improve performance)
+
+- CompressedOOP: JVM flag -XX:UseCompressedOOPs
+
+- GC tuning:
+
+  - Enable GC logging
+
+    - ParallelGC (default):
+
+      ```
+      -XX:+UseParallelGC
+      -verbose:gc
+      -XX:+PrintGCDetails
+      -XX:+PrintGCTimeStamps
+      ```
+
+    - G1GC (if heap size > 8GB)
+
+      ```
+      -XX:+UseG1GC
+      -verbose:gc
+      -XX:+PrintGCDetails
+      -XX:+PrintGCTimeStamps
+      -XX:+UnlockDiagnosticVMOptions
+      -XX:+PrintAdaptiveSizePolicy
+      -XX:+G1SummarizeConcMark
+      
+      // for large applications, those could be helpful
+      -XX:ParallelGCThreads=n
+      -XX:ConcGCThreads = [n, 2n]
+      -XX:InitiatingHeapOccupancyPercent=35
+      ```
+
+- Misc
+
+  - [Salting for skewed data](https://bigdatacraziness.wordpress.com/2018/01/05/oh-my-god-is-my-data-skewed/), [General salt join function](https://itnext.io/handling-data-skew-in-apache-spark-9f56343e58e8)
+  - [Partitioned data Lake maintenance challenge with ](https://mungingdata.com/apache-spark/partitionby/)
 
 ### Spark 3.0 New
 
@@ -650,9 +749,15 @@ sum(*cols) -
 
   - Photon: new execution engine written in C++ Optimize performance
     - Vectorization: Data leve optimization and Instruction Level optimiszation
-    - 
+  
+- [Spark Internal](https://ymgd.github.io/codereader/2018/03/03/深入Spark内核/)
 
+## Filter push down implementation
 
+In a SQL statement, a filter is often used to choose the rows that meet the given criteria. In Spark, a filter is pushed down to the data source layer using the following implementation:
 
-
+1. Logical Plan Filter is in *Catalyst Expression*.
+2. A *Catalyst Expression* is translated into *data source Filter*.
+3. If the *Catalyst Expression* can’t be translated to data source *Filter*, or is not supported by data source, it will be handled at the Spark layer.
+4. Otherwise, it will be pushed down to the data source layer.
 

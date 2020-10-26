@@ -282,7 +282,7 @@ Pattern Matching
   }
   ```
 
-- Exception
+- Exception, [examples](https://pedrorijo.com/blog/scala-exceptions/)
 
 - ```scala
   import scala.util.control.Exception
@@ -401,6 +401,13 @@ Pattern Matching
   ```
 
 - Typeclass [Explained](https://scalac.io/typeclasses-in-scala/)
+
+    - Earlier we insinuated that all type class instances are implicit vals. This was a simplifica􏰀on. We can actually define instances in two ways:
+
+        1. by defining concrete instances as implicit vals of the required type4;
+        2. bydefiningimplicitmethodstoconstructinstancesfromothertype class instances.
+
+        Why would we construct instances from other instances? As a mo􏰀va􏰀onal example, consider defining a JsonWriter for Options. 
 
 - ```scala
   trait Printable[T] {
@@ -572,6 +579,15 @@ Pattern Matching
 
   - Diamond problem, Solution: Trait Linearization
 
+    Remember that the syntax to mixin traits is as follows: `class A extends B with C with D`. The rules for this process are as follows:
+  
+    1. Start at the first extended class or trait and write that complete hierarchy down. We will call this the **linearized hierarchy**
+    2. Take the next trait and write this hierarchy down
+       - now remove all classes/traits from this hierarchy which are already in the **linearized hierarchy**
+       - add the remaining traits to the bottom of the **linearized hierarchy** to create the new **linearized hierarchy**
+    3. repeat step 2 for every trait.
+    4. Place the class itself as the last type extending the **linearized hierarchy**
+  
   - ```scala
     trait A { def value = 10 }
     trait B extends A { override def value = super.value * 2 }
@@ -586,33 +602,38 @@ Pattern Matching
       // B overrides A
       override def value = super.value * 2
     }
-    trait AnonymousC extends AnonymousB {
+  trait AnonymousC extends AnonymousB {
       // C overrides AnonymousB
-      override def value = super.value + 2
+    override def value = super.value + 2
     }
-    trait X extends AnonymousC
+  trait X extends AnonymousC
     
-    (new B with C {}).value // (10 * 2) + 2 = 22 
-    (new C with B {}).value // (20 + 2) * 2 = 24
     ```
+  
+  (new B with C {}).value // (10 * 2) + 2 = 22 
+    (new C with B {}).value // (20 + 2) * 2 = 24
+  
+    ```
+  
+    ```
+  
+- ## Kinds and higher-kinded-types
 
-  - ## Kinds and higher-kinded-types
-
-    These *types of types* (a type, a type constructor, etc) are known as [**kinds**](https://en.wikipedia.org/wiki/Kind_(type_theory)). Scala let us investigate them in REPL using `:kind`
+  These *types of types* (a type, a type constructor, etc) are known as [**kinds**](https://en.wikipedia.org/wiki/Kind_(type_theory)). Scala let us investigate them in REPL using `:kind`
 
   - Type Constraints
 
     - `<:` denotes an upper bound in type parameters. 
     - There is also a notation for lower bound, `>:`
-    - `<:<` - let us require that one type is a *subclass* the other. It is defined inside a `scala.Predef`.
+  - `<:<` - let us require that one type is a *subclass* the other. It is defined inside a `scala.Predef`.
 
-    ```scala
+  ```scala
     def upcast[A, B](set: Set[A])(
       implicit ev: A <:< B
     ): Set[B] = set.map(ev(_))
       
     upcast[Member, User](Set(m: Member)) // Set[User]
-    ```
+  ```
 
     - `=:=` - let us require that one is *equal* to the other.
 
@@ -621,23 +642,52 @@ Pattern Matching
         implicit ev: A =:= B
       ): Set[B] = set.map(f)
         
-      val members: Set[Member]
+      ```
+
+    val members: Set[Member]
         
-      update[Member, Member](members)(identity) // ok
+    update[Member, Member](members)(identity) // ok
       update[Member, User](members) { member =>
-        member: User
+      member: User
       } // compilation error!
       ```
 
-      
+    
 
-    - `=:!=` - provided by shapeless. Proves, that types are *different*.
+  - `=:!=` - provided by shapeless. Proves, that types are *different*.
 
   - Variance
 
     - Invariance means, that even if `B <: A` then `Option[B]` still cannot be substituted for `Option[A]`. It is a default and a good one!
+
     - if `B >: A` then `F[B] >: F[A]` is called **covariance**. To mark a type parameter as covariant we use `+`
+
     - Case where we want to say that `A <: B` implies `F[B] >: F[A]` is called **contravariance** as it is an opposition of covariance. We denote it with `-` sign
+
+    - Function **arguments** are **contra-variance** and result is **covariance**. **This means that** (Scala compiler checks them) see [video](https://www.youtube.com/watch?v=QDzPNv4UIkY)
+
+      - **covariant** *type parameters* can only appear in method **results**
+
+      - **contravariant** *type parameters* can only appear in method **parameters**
+
+      - **invariant** *type parameters* can appear anywhere
+
+      - **covariant** *type parameters* **may** appear in lower bounds of method type parameters
+
+      - **contravariant** *type parameters* **may** appear in upper bounds of method type parameters
+
+        ```Scala
+      // Example of valid def`
+        trait Function1[-T, +U] {
+          def apply(x: T): U
+        }
+        // How to make covariance in argument?
+        trait List[+T] {
+          def prepend[U >: T](elem: U): List[U]
+        }
+        ```
+
+        
 
   - F-bound Types
 
@@ -675,7 +725,7 @@ Pattern Matching
       def getCards: Set[this.Card] = ???
       
       def playerPlayCard(player: this.Player, card: this.Card): Unit = ???
-    }
+  }
     
     val game1 = new Game
     val game2 = new Game
@@ -704,25 +754,27 @@ Pattern Matching
       val y: Y = "y"
     }
     
-    class X2 extends X
-    
-    val x1 = new X2
-    val x2 = new X2
-    
-    y(x1)(x2.y) // fails!
     ```
 
+  class X2 extends X
+
+  val x1 = new X2
+  val x2 = new X2
+
+    y(x1)(x2.y) // fails!
+    ```
+  
     ```scala
-    //OK, but what if we wanted to lose our requirements at some point?
+  //OK, but what if we wanted to lose our requirements at some point?
     
     def takeAnyPlayer(p: ???): Unit
     //We need to indicate a way of passing path-dependent type without its the context if needed. Such ability is granted to us via #:
     
     def takeAnyPlayer(p: Game#Player): Unit
-    
+  
     // At this point there is very little we know for certain about our p. Scala most won’t be able to tell what is the exact type even if it would be obvious to you from the code. If there were some type constraints about the type, that would be guaranteed, you can rely on it. But anything that comes with the specification of path-dependent type is lost:
     
-    
+  
     trait X {
       type Y <: AnyVal { def toLong: Long }
       val y: Y
@@ -750,9 +802,11 @@ Pattern Matching
 
     We start with `Either[_, _]` and we want to partially apply `String` as the first type parameter. In order to do so, we:
 
-    - create a type alias `T[A] = Either[String, A]`, which creates a parametric type `T[A]` with one type parameter,
+  - create a type alias `T[A] = Either[String, A]`, which creates a parametric type `T[A]` with one type parameter,
+    
     - we put it inside a structural type to create an opportunity for creating a path-dependent type,
-    - finally we extract `T` as a path-dependent type, such that Scala can tell its specific type exactly,
+    
+  - finally we extract `T` as a path-dependent type, such that Scala can tell its specific type exactly,
     - since we didn’t applied type parameters, we end up with a single parameter type constructor,
     - we achieved partial-application of a type parameters to a type constructor, aka **type lambda** or **kind projection**.
 
@@ -789,14 +843,14 @@ Pattern Matching
 
     Self-types, might be used to enforce ordering of [low-priority implicits](https://kubuszok.com/2018/implicits-type-classes-and-extension-methods-part-4/#troublesome-cases):
 
-  - Functional Programming in Scala
-  
+  - **Functional Programming in Scala**
+
     - Exception Handling
-  
-      - Option
-  
-        - A common pattern is to transform an Option via calls to ***map, flatMap***, and/or ***filter***, and then use ***getOrElse*** to do error handling at the end
-  
+
+      - Option, [Either and Try](https://mauricio.github.io/2014/02/17/scala-either-try-and-the-m-word.html)
+
+        - A common pattern is to transform an Option via calls to ***map, flatMap***, and/or ***filter***, and then use ***getOrElse*** to do error handling at the end. Use ***filter*** to convert successes into failures if the successful values don’t match the given predicate.
+
           ```scala
           case class Employee(name: String, department: String)
           def lookupByName(name: String): Option[Employee] = ...
@@ -804,15 +858,97 @@ Pattern Matching
           
           val dept: String = lookupByName("Joe").map(_.dept).filter(_ != "Accounting").getOrElse("Default Dept")
           ```
-  
-        - A common idiom is to do o.getOrElse(throw new Exception("FAIL")) to convert the None case of an Option back to an exception. 
-  
+
+        - A common idiom is to do ***o.getOrElse***(throw new Exception("FAIL")) to convert the None case of an Option back to an exception. ***orElse*** is similar to getOrElse, except that we return another Option if the first is undefined. This is often useful when we need to chain together possibly failing computations, trying the second if the first hasn’t succeeded
+
+      - #### Option composition, lifting, and wrapping exception-oriented APIs
+
+        - ***map*** turns a function f of type A => B into a function of type Option[A] => Option[B]
+
+        ```Scala
+        def lift[A,B](f: A => B): Option[A] => Option[B] = _ map f	
+        // examples:
+        val absO: Option[Double] => Option[Double] = lift(math.abs)
+        
+        // two parameters
+        def map2[A,B,C](a: Option[A], b: Option[B])(f: (A, B) => C): Option[C] = 
+        a flatMap (aa => b map (bb => f(aa, bb)))
+        
+        def map2[A,B,C](a: Option[A], b: Option[B])(f: (A, B) => C): Option[C] = 
+         for {
+            aa <- a
+            bb <- b
+          } yield f(aa, bb)
+        
+        ```
+
+    - Infinite streams (lazy lists)
+
+      - ```Scala
+        val ones: Stream[Int] = Stream.cons(1, ones)
+        ones.take(5).toList
+        ones.exists(_ % 2 != 0)
+        ```
+
+    - [Functor/Applicative/Monad explained](http://blog.forec.cn/2017/03/02/translation-adit-faamip/) [English version](http://adit.io/posts/2013-04-17-functors,_applicatives,_and_monads_in_pictures.html)
+
+      - [Another explain](https://www.dazhuanlan.com/2019/11/12/5dc9b204efc94/)
+
+      - Monoid
+
+        ```scala
+        trait Monoid[A] {
+          def op(a1: A, a2: A): A
+          def zero: A
+        }
+        ```
+
+        
+
+      - Functor
+
+        ```Scala
+        trait Functor[F[_]] {
+          def map[A,B](fa: F[A])(f: A => B): F[B]
+        }
+        val listFunctor = new Functor[List] {
+          def map[A,B](as: List[A])(f: A => B): List[B] = as map f
+        }
+        ```
+
+      - ### MONADS: GENERALIZING THE FLATMAP AND UNIT FUNCTIONS [explained](https://medium.com/free-code-camp/demystifying-the-monad-in-scala-cc716bb6f534)
+
+        ```scala
+        trait Monad[F[_]] extends Functor[F] {
+          def unit[A](a: A): F[A]  // This could be the apply() in companion object
+          def flatMap[A, B](ma: F[A])(f: A => F[B]): F[B]
+          
+          def map[A, B](ma: F[A])(f: A => B): F[B] = 
+          	flagMap(ma)(a => unit(f(a)))
+          def map2[A, B, C](ma: F[A], mb: F[B])(f: (A,B) => C): F[C] = 
+          	flagMap(ma)(a => map(mb)(b => f(a, b)))
+        }
+        
+        // monad laws
+        // if we have some basic value x, a monad instance m (holding some value) and 
+        // functions f and g of type Int → M[Int], we can write the laws as follows
+        // 1. left-identity law: 
+        unit(x).flatMap(f) == f(x)
+        // 2. right-identity law: 
+        m.flatMap(unit) == m
+        // 3. associativity law:
+        m.flatMap(f).flatMap(g) == m.flatMap(x ⇒ f(x).flatMap(g))
+        
+        ```
+
+        
+
     - Pure Functional State
-  
+
       - Making stateful APIs pure
-  
+
         - having the API *compute* the next state rather than actually mutate anything, e.g.
-  
+
           ```Scala
           class Foo {
             private var s: FooState = ...
@@ -825,10 +961,13 @@ Pattern Matching
             def baz: (Int, Foo)
           }
           ```
-  
+
         - Functions of this type are called ***state actions*** or ***state transitions*** because they transform RNG states from one to the next. These state actions can be combined using *combinators*, which are higher-order functions that we’ll define below
-  
+
+          
+
           ```Scala
+          
           // State actions or state transition
           type Rand[+A] = RNG => (A, RNG)
           
@@ -903,8 +1042,50 @@ Pattern Matching
           }
           
           ```
-  
-          
+
+  - Factoring Effects
+
+    - Given an impure function f of type A => B, we can split f into two functions:
+
+      - A *pure* function of type A => D, where D is some *description* of the result of f.
+
+      - An *impure* function of type D => B, which can be thought of as an *interpreter* of these descriptions.
+
+      - Example: 
+
+        ```Scala
+        case class Player(name: String, score: Int)
+        
+        def contest(p1: Player, p2: Player): Unit =
+          if (p1.score > p2.score)
+          println(s"${p1.name} is the winner!")
+        else if (p2.score > p1.score)
+          println(s"${p2.name} is the winner!")
+        else
+          println("It's a draw.")
+        
+        def winner(p1: Player, p2: Player): Option[Player] = {
+          if (p1.score > p2.score) Some(p1)
+          else if (p1.score < p2.score) Some(p2)
+          else None
+        }
+        def winnerMsg(p: Option[Player]): String = p map {
+          case Player(name, _) => s"$name is the winner!"
+        } getOrElse "It's a draw."
+        
+        def contest(p1: Player, p2: Player): Unit = println(winnerMsg(winner(p1, p2)))
+        
+        //------------------
+        trait IO {  def run: Unit }
+        
+        def PrintLine(msg: String): IO =
+          new IO {  def run = println(msg) }
+        
+        def contest(p1: Player, p2: Player): IO =
+          PrintLine(winnerMsg(winner(p1, p2)))
+        ```
+
+        
 
 #### Shapeless
 
@@ -913,6 +1094,8 @@ Pattern Matching
 - [Get started with Shapeless](https://jto.github.io/articles/getting-started-with-shapeless/)
 
 - [a blog](https://lepovirta.org/posts/2015-10-30-solving-problems-in-a-generic-way-using-shapeless.html)
+
+- [Herding Cats](http://eed3si9n.com/herding-cats/)
 
 - [Spark StructType encoder using shapeless](https://benfradet.github.io/blog/2017/06/14/Deriving-Spark-Dataframe-schemas-with-Shapeless)
 
@@ -1080,26 +1263,123 @@ Pattern Matching
 - Misc Resources
 
   - [Stackoverflow disjunction union types](https://stackoverflow.com/questions/3508077/how-to-define-type-disjunction-union-types)
+
   - [Enums](https://pedrorijo.com/blog/scala-enums/)
+
   - [var/val and immutable/mutable collections](https://stackoverflow.com/questions/11386559/val-mutable-versus-var-immutable-in-scala)
+
   - [Type Level programming explain](http://gigiigig.github.io/)
+
   - [shapeless for cross layer conversion blog](https://blog.softwaremill.com/how-not-to-use-shapeless-for-cross-layer-conversions-in-scala-9ac36363aed9)
+
   - [Type Level Programming in Shapeless](https://apocalisp.wordpress.com/2010/06/08/type-level-programming-in-scala/)
+
   - [Refined in Practice](https://kwark.github.io/refined-in-practice/#1)
+
   - [spark tips](https://cm.engineering/10-tips-in-writing-a-spark-job-in-scala-cc837149a173)
+    
+    - [spark parallel jobs](https://databricks.com/session/parallelizing-with-apache-spark-in-unexpected-ways)
+    
   - [Denpenency Injection](http://jonasboner.com/real-world-scala-dependency-injection-di/)
+
   - [Return current type](https://tpolecat.github.io/2015/04/29/f-bounds.html)
+
   - [Concurrency](https://blog.matthewrathbone.com/2017/03/28/scala-concurrency-options.html)
+
   - [Scala 3 ADT](https://blog.oyanglul.us/scala/dotty/en/gadt)
+
   - [pre-commit custom hooks for scala](https://blog.softwaremill.com/reusable-pre-commit-hooks-in-scala-projects-d8bb327047ee)
+
+  - Eta-expansion
+
+  - [Effective Scala](https://twitter.github.io/effectivescala/)
+
+  - [Dependency Injection](http://di-in-scala.github.io), [Martin Fowler](https://martinfowler.com/articles/injection.html)
+
   - Sbt release
     - [Painless release with sbt](https://blog.byjean.eu/2015/07/10/painless-release-with-sbt.html)
     - [giter8 template](http://www.foundweekends.org/giter8/setup.html)
+    
   - LIbraries
+    
     - [JSON Encoding using argonaut-shapeless](https://github.com/alexarchambault/argonaut-shapeless)
-  
+    
+  - Patterns
+    - [Stack traits](https://www.artima.com/scalazine/articles/stackable_trait_pattern.html)
+    - [selfless trait pattern](https://www.artima.com/scalazine/articles/selfless_trait_pattern.html)
+    
+  - Tips and Tricks
+    
+    - [collections tips](https://pavelfatin.com/scala-collections-tips-and-tricks/)
+    
+  - Cats:
+
+    - ```Bash
+      sbt new underscoreio/cats-seed.g8
+      sbt new typelevel/sbt-catalysts.g8
+      ```
+
+    - The *instances* of a type class provide implementa􏰀ons for the types we care about, including types from the Scala standard library and types from our do- main model.A type class *interface* is any func􏰀onality we expose to users. Interfaces are generic methods that accept instances of the type class as implicit parameters.
+
+      There are two common ways of specifying an interface: ***Interface Objects*** and ***Interface Syntax*.**(implicit class)
+
+    - For our purposes, we can package type class instances in roughly four ways:
+
+      1. by placing them in an object such as JsonWriterInstances; 
+
+      2. by placing them in a trait;
+      3. by placing them in the companion object of the typeclass;
+      4. by placing them in the companion object of the parameter type.
+
+      With op􏰀on 1 we bring instances into scope by importing them. With op􏰀on 2 we bring them into scope with inheritance. With op􏰀ons 3 and 4, instances are *always* in implicit scope, regardless of where we try to use them
+
+    - Recursive Implicit Resolution
+
+      - Earlier we insinuated that all type class instances are implicit vals. This was a simplifica􏰀on. We can actually define instances in two ways:
+
+        1. by defining concrete instances as implicit vals of the required type;
+
+        2. by defining implicit methods to construct instances from other type class instances, e g. See code Below
+
+           When you create a type class instance constructor using an implicit def, be sure to mark the parameters to the method as implicit pa- rameters. Without this keyword, the compiler won’t be able to fill in the parameters during implicit resolu􏰀on.
+
+           implicit methods with non-implicit parameters form a different Scala pa􏰁ern called an *implicit conversion*.
+
+           ```Scala
+           implicit def optionWriter[A](implicit writer: JsonWriter[A]): JsonWriter[Option[A]] =
+             new JsonWriter[Option[A]] {
+               def write(option: Option[A]): Json =
+                 option match {
+                   case Some(aValue) => writer.write(aValue)
+                   case None         => JsNull
+           } }
+           ```
+
+    - Imports in cats
+
+      - The type classes in Cats are defined in the **cats** package.
+
+      - The **cats.instances** package provides default instances for a wide variety of types.
+
+      - We can make Show easier to use by impor􏰀ng the *interface syntax* from **cats.syntax.**show.
+
+      - Import All things
+
+        ```Scala
+        import cats._
+        import cats.implicits._
+        //import cats.Show          // the typeclass
+        //import cats.instances.int._    // for Show
+        //import cats.instances.string._ // for Show
+        //import cats.syntax.show._   // syntax
+        ```
+
+        
+
 - Blogs
 
   - [OuYang](https://blog.oyanglul.us)
   - [Batey](http://www.batey.info)
+  - [Spark dataframe and Functional Programming](http://usethiscode.blogspot.com/2015/10/spark-dataframes-transformations-with.html)
+  - [Scala School](https://twitter.github.io/scala_school/)
 

@@ -27,7 +27,7 @@ list, bytearray, array.array, `collections.deque`, and `memoryview
 - Immutable sequences
 
 ```python
-tuple`, `str`, and `bytes
+tuple, str, and bytes
 ```
 
 - list.sort and sorted
