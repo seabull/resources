@@ -52,6 +52,8 @@
 
   - [partition](https://mungingdata.com/apache-spark/partitionby/)
 
+  - [partition tuning](https://luminousmen.com/post/spark-tips-partition-tuning)
+
   - [Spark top 5 mistakes](file://Spark_top5mistakes.pdf)
 
       - Keep under 5 cores per executor for max HDFS throughput
@@ -61,7 +63,7 @@
       - Need some overhead (controlled by
 
           spark.yarn.executor.memory.overhead) for off heap memory
-
+  
           Default is **max(384MB, .07 * spark.executor.memory)**
   
           [Spark Tuning blog](http://blog.cloudera.com/blog/2015/03/how- to-tune-your-apache-spark-jobs-part-2/)
@@ -83,6 +85,30 @@
           - Use Complex Types
   
   - [threading](https://medium.com/@rbahaguejr/threaded-tasks-in-pyspark-jobs-d5279844dac0), [pyspark parallelization](https://towardsdatascience.com/3-methods-for-parallelization-in-spark-6a1a4333b473)
+  
+  - [Fair scheduler](https://supergloo.com/spark/spark-fair-scheduler-example/)
+  
+      - Someone [over on the spark-users list](http://mail-archives.apache.org/mod_mbox/spark-user/201704.mbox/) clarified something that explains why I'm not getting what I expect: Spark scheduler pools are for managing resources *within* an application, while YARN queues are for managing resources *across* applications. This is explained in the Spark docs under [Job Scheduling](https://spark.apache.org/docs/latest/job-scheduling.html).
+  
+  - ```bash
+                              --driver-memory 20G \
+                              --executor-memory 24G \
+                              --executor-cores 5 \
+                              --conf "spark.dynamicAllocation.maxExecutors = 1000" \
+                              --conf "spark.yarn.executor.memoryOverhead = 4.8g"\
+                              --conf "spark.memory.offHeap.enabled = true" \
+                              --conf "spark.memory.offHeap.size = 24g" \
+                              --conf "spark.sql.files.maxPartitionBytes = 131072" \
+                              --conf "spark.shuffle.service.index.cache.size = 2048" \
+                              --conf "spark.sql.autoBroadcastJoinThreshold = 3g" \
+                              --conf "spark.shuffle.file.buffer = 1MB" \
+                              --conf "spark.unsafe.sorter.spill.reader.buffer.size = 1MB" \
+                              --conf "spark.file.transferTo = false" \
+                              --conf "spark.shuffle.unsafe.file.output.buffer = 5MB" \
+                            
+      ```
+  
+      
   
   - Some background on Spark EventLog/applicationHistory files
   
@@ -683,6 +709,7 @@ sum(*cols) -
 
   - [Salting for skewed data](https://bigdatacraziness.wordpress.com/2018/01/05/oh-my-god-is-my-data-skewed/), [General salt join function](https://itnext.io/handling-data-skew-in-apache-spark-9f56343e58e8)
   - [Partitioned data Lake maintenance challenge with ](https://mungingdata.com/apache-spark/partitionby/)
+  - [pyspark and jupyter](https://stackoverflow.com/questions/47824131/configuring-spark-to-work-with-jupyter-notebook-and-anaconda/47870277#47870277)
 
 ### Spark 3.0 New
 

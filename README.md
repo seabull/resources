@@ -63,6 +63,8 @@
 
 - [git flow cheatsheet](https://danielkummer.github.io/git-flow-cheatsheet/)
 
+- [git upstream explained](https://stackoverflow.com/questions/37770467/why-do-i-have-to-git-push-set-upstream-origin-branch/37770744#37770744)
+
 ### Docker
 
 - [Find child docker images](https://stackoverflow.com/questions/36584122/how-to-get-the-list-of-dependent-child-images-in-docker)
@@ -161,9 +163,19 @@
 
 - [data frame partitioning](https://stackoverflow.com/questions/30995699/how-to-define-partitioning-of-dataframe)
 
+  - [memory partitioning and disk partition](https://mungingdata.com/apache-spark/partitionby/)
+
+- [Scala Future and Spark Concurrency](http://www.russellspitzer.com/2017/02/27/Concurrency-In-Spark/)
+
 - [pyspark production best practices](https://developerzen.com/best-practices-writing-production-grade-pyspark-jobs-cb688ac4d20f)
 
 - [advanced spark training by sameer](https://youtu.be/7ooZ4S7Ay6Y)
+
+- [spark unit tests](https://medium.com/@eugene_lopatkin/apache-spark-integration-testing-32d9aa9860be)
+
+- [Spark docker workbench](https://www.big-data-europe.eu/scalable-sparkhdfs-workbench-using-docker/)
+
+  - [github repo](https://github.com/big-data-europe/docker-hadoop-spark-workbench)
 
 - [spark tuning tips](https://spark.apache.org/docs/latest/tuning.html)
 
@@ -316,6 +328,10 @@
 
   - [Spark AI Summit 2020](https://databricks.com/sparkaisummit/north-america-2020/agenda)
 
+  - [parallelizing spark by Anna Holschuh TGT](https://databricks.com/session/parallelizing-with-apache-spark-in-unexpected-ways)
+
+  - [spark unit testing](https://eugene-lopatkin.medium.com/apache-spark-integration-testing-32d9aa9860be)
+
 ## Security
 
 - Kerberos
@@ -439,6 +455,8 @@
   
 - [Architecture Resources](https://developertoarchitect.com)
 
+- [Spark vs Flink](https://hal.inria.fr/hal-01347638v2/document )
+
 - [Code City](https://wettel.github.io/codecity-download.html)
 
 - [cgroup video](https://youtu.be/sK5i-N34im8)
@@ -449,6 +467,8 @@
   - exa (dir/ls tool)
 
 - Notes and tips
+
+  - [git-crypt to protect sensitive files](https://varrette.gforge.uni.lu/blog/2018/12/07/using-git-crypt-to-protect-sensitive-data/)
 
   - Hive CLI in Oozie actions
 

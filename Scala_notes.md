@@ -863,8 +863,9 @@ Pattern Matching
 
       - #### Option composition, lifting, and wrapping exception-oriented APIs
 
-        - ***map*** turns a function f of type A => B into a function of type Option[A] => Option[B]
-
+        - [Option cheat sheet](https://blog.tmorris.net/posts/scalaoption-cheat-sheet/)
+    - ***map*** turns a function f of type A => B into a function of type Option[A] => Option[B]
+        
         ```Scala
         def lift[A,B](f: A => B): Option[A] => Option[B] = _ map f	
         // examples:
@@ -880,33 +881,33 @@ Pattern Matching
             bb <- b
           } yield f(aa, bb)
         
-        ```
-
-    - Infinite streams (lazy lists)
-
+      ```
+  
+  - Infinite streams (lazy lists)
+  
       - ```Scala
         val ones: Stream[Int] = Stream.cons(1, ones)
         ones.take(5).toList
         ones.exists(_ % 2 != 0)
-        ```
-
-    - [Functor/Applicative/Monad explained](http://blog.forec.cn/2017/03/02/translation-adit-faamip/) [English version](http://adit.io/posts/2013-04-17-functors,_applicatives,_and_monads_in_pictures.html)
-
-      - [Another explain](https://www.dazhuanlan.com/2019/11/12/5dc9b204efc94/)
-
-      - Monoid
-
+      ```
+  
+  - [Functor/Applicative/Monad explained](http://blog.forec.cn/2017/03/02/translation-adit-faamip/) [English version](http://adit.io/posts/2013-04-17-functors,_applicatives,_and_monads_in_pictures.html)
+  
+    - [Another explain](https://www.dazhuanlan.com/2019/11/12/5dc9b204efc94/)
+  
+    - Monoid
+  
         ```scala
         trait Monoid[A] {
           def op(a1: A, a2: A): A
           def zero: A
         }
-        ```
-
-        
-
-      - Functor
-
+      ```
+  
+      
+  
+    - Functor
+  
         ```Scala
         trait Functor[F[_]] {
           def map[A,B](fa: F[A])(f: A => B): F[B]
@@ -914,10 +915,10 @@ Pattern Matching
         val listFunctor = new Functor[List] {
           def map[A,B](as: List[A])(f: A => B): List[B] = as map f
         }
-        ```
-
-      - ### MONADS: GENERALIZING THE FLATMAP AND UNIT FUNCTIONS [explained](https://medium.com/free-code-camp/demystifying-the-monad-in-scala-cc716bb6f534)
-
+      ```
+  
+    - ### MONADS: GENERALIZING THE FLATMAP AND UNIT FUNCTIONS [explained](https://medium.com/free-code-camp/demystifying-the-monad-in-scala-cc716bb6f534)
+  
         ```scala
         trait Monad[F[_]] extends Functor[F] {
           def unit[A](a: A): F[A]  // This could be the apply() in companion object
@@ -939,16 +940,16 @@ Pattern Matching
         // 3. associativity law:
         m.flatMap(f).flatMap(g) == m.flatMap(x ⇒ f(x).flatMap(g))
         
-        ```
-
-        
-
-    - Pure Functional State
-
-      - Making stateful APIs pure
-
-        - having the API *compute* the next state rather than actually mutate anything, e.g.
-
+      ```
+  
+      
+  
+  - Pure Functional State
+  
+    - Making stateful APIs pure
+  
+      - having the API *compute* the next state rather than actually mutate anything, e.g.
+  
           ```Scala
           class Foo {
             private var s: FooState = ...
@@ -960,12 +961,12 @@ Pattern Matching
             def bar: (Bar, Foo)
             def baz: (Int, Foo)
           }
-          ```
-
-        - Functions of this type are called ***state actions*** or ***state transitions*** because they transform RNG states from one to the next. These state actions can be combined using *combinators*, which are higher-order functions that we’ll define below
-
-          
-
+        ```
+  
+      - Functions of this type are called ***state actions*** or ***state transitions*** because they transform RNG states from one to the next. These state actions can be combined using *combinators*, which are higher-order functions that we’ll define below
+  
+        
+  
           ```Scala
           
           // State actions or state transition
@@ -1041,18 +1042,18 @@ Pattern Matching
             def set[S](s: S): State[S, Unit] = State(_ => ((), s))
           }
           
-          ```
-
-  - Factoring Effects
-
-    - Given an impure function f of type A => B, we can split f into two functions:
-
-      - A *pure* function of type A => D, where D is some *description* of the result of f.
-
-      - An *impure* function of type D => B, which can be thought of as an *interpreter* of these descriptions.
-
-      - Example: 
-
+        ```
+  
+- Factoring Effects
+  
+  - Given an impure function f of type A => B, we can split f into two functions:
+  
+    - A *pure* function of type A => D, where D is some *description* of the result of f.
+  
+    - An *impure* function of type D => B, which can be thought of as an *interpreter* of these descriptions.
+  
+    - Example: 
+  
         ```Scala
         case class Player(name: String, score: Int)
         
@@ -1083,8 +1084,8 @@ Pattern Matching
         
         def contest(p1: Player, p2: Player): IO =
           PrintLine(winnerMsg(winner(p1, p2)))
-        ```
-
+      ```
+  
         
 
 #### Shapeless

@@ -887,7 +887,11 @@ tuple, str, and bytes
     TextIOWrapper, _TextIOBase, _IOBase, object
     ```
 
-  - 
+  - Iterables and Iterattors
+  
+    - A common cause of errors in building iterables and iterators is to confuse the two. To be clear: iterables have an `__iter__` method that instantiates a new iterator every time. Iterators implement a `__next__` method that returns individual items, and an `__iter__` method that returns `self`.
+    - An iterable should never act as an iterator over itself. In other words, iterables must implement `__iter__`, but not `__next__`.
+    - On the other hand, iterators should always be iterable. An iterator’s `__iter__` should just return `self`.
 
 ### Package and Import
 
@@ -1078,6 +1082,12 @@ This test function is similar to the success case, except it is now returning a 
         req.dbsession.add = lambda arg: None
         assert isinstance(some_view(req), HTTPFound)
     ```
+  
+- [pyspark testing](https://mungingdata.com/pyspark/testing-pytest-chispa/)
+
+- [poetry, pyspark, wheeling](https://mungingdata.com/pyspark/poetry-dependency-management-wheel/)
+
+
 
 ### Misc
 
