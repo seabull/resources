@@ -1,3 +1,43 @@
+sbt
+
+settingKey[[T] : Evaluated once per project load
+
+taskKey[T]: evaluated every time it gets called
+
+inputKey[T]: Accepts command-line arguments
+
+Settings could depend on settings, but can't depend on tasks
+
+Project / Config (Compile/Test/Runtime) / Task / Key
+
+Task could depend on settings and/or tasks
+
+- Sbt Shell
+  - Help, inspect (inspect the kind of keys)
+  - reload
+  - ! Command
+  - ;clean ;compile ;packageZipTarball
+
+```mermaid
+graph TB
+A[Parse Command Line Arguemnts and Load Config file] -->B[Execute Pipeline Logic, Send Slack Msg, Perf Metrics Mgr and Cached metrics]
+    B --> Z[Load Table concurrently]
+    Z --> C[Load SF Hive table]
+    Z --> D[Load CMP Hive table]
+    Z --> E[Load PbR Hive table]
+    C --> F[Business Logic and Filters]
+    D --> G[Decorate with Business Logic/Filters]
+    E --> H[Decorate with Business Logic/Filters]
+    F --> I[Sync All DataFrames Loaded]
+    G --> I
+    H --> I
+    I --> J[Write to Hive Table]
+    J --> K[Post Process, Send Cached Perf Metrics]
+    
+```
+
+[Scala Best practices](https://nrinaudo.github.io/scala-best-practices/partial_functions/)
+
 Pattern Matching
 
 - assignment
@@ -63,7 +103,34 @@ Pattern Matching
   }
   ```
 
+  - [Type Erasure](https://gist.github.com/jkpl/5279ee05cca8cc1ec452fc26ace5b68b)
   
+    - example
+  
+    - ```scala
+      val lst2: List[(String, Int)] = List(("a", 1), ("b", 2))
+      val lstString: List[String] = List("A", "B", "C")
+      val lstInt: List[Int] = List(1,2,3,4)
+      val lstWhatever: List[Double] = List(1.0,2.0,3.0)
+      val tuple: (String, Int) = ("a", 100)
+      val lstAny: List[Any] = List.empty
+      
+      lstAny match {
+        case x:List[(String, Int)] =>
+          println("This is a tuple list")
+          x.foreach(println)
+        // Anything below can't be reached
+        case x: List[Int] =>
+          println("This is a int list")
+        case x: List[String] =>
+          println("This is a string list")
+        case _ =>
+          println("This is reached as long as it is not a list")
+      }
+      
+      ```
+  
+    - 
 
 #### Partial Functions
 
@@ -101,7 +168,7 @@ Pattern Matching
   // collectFirst as collect with find
   // partition as collection chunking
   // groupBy for constructing Maps
-  // lift for tuning function-that-throws-exception into function-that-returns-an-Option
+  // lift for turning function-that-throws-exception into function-that-returns-an-Option
   val animals: Seq[Animal]
   animals.filter(_.age<10).map(_.name)
   animals.filter(_.age<10).filter(_.species == Cow).map(_.name)
@@ -602,11 +669,11 @@ Pattern Matching
       // B overrides A
       override def value = super.value * 2
     }
-  trait AnonymousC extends AnonymousB {
+    trait AnonymousC extends AnonymousB {
       // C overrides AnonymousB
     override def value = super.value + 2
     }
-  trait X extends AnonymousC
+    trait X extends AnonymousC
     
     ```
   
@@ -677,7 +744,7 @@ Pattern Matching
       - **contravariant** *type parameters* **may** appear in upper bounds of method type parameters
 
         ```Scala
-      // Example of valid def`
+        // Example of valid def`
         trait Function1[-T, +U] {
           def apply(x: T): U
         }
@@ -725,7 +792,7 @@ Pattern Matching
       def getCards: Set[this.Card] = ???
       
       def playerPlayCard(player: this.Player, card: this.Card): Unit = ???
-  }
+    }
     
     val game1 = new Game
     val game2 = new Game
@@ -865,7 +932,7 @@ Pattern Matching
 
         - [Option cheat sheet](https://blog.tmorris.net/posts/scalaoption-cheat-sheet/)
     - ***map*** turns a function f of type A => B into a function of type Option[A] => Option[B]
-        
+      
         ```Scala
         def lift[A,B](f: A => B): Option[A] => Option[B] = _ map f	
         // examples:
@@ -942,7 +1009,17 @@ Pattern Matching
         
       ```
   
-      
+    - Monad
+  
+      - We’ve seen three minimal sets of primitive Monad combinators, and instances of Monad will have to provide implementations of one of these sets:
+  
+        unit and flatMap
+        unit and compose
+        unit, map, and join
+  
+      - A monad is an implementation of one of the minimal sets of monadic combinators, satisfying the laws of associativity and identity.
+  
+      - We can see that a chain of flatMap calls (or an equivalent for-comprehension) is like an imperative program with statements that assign to variables, and the monad specifies what occurs at statement boundaries. For example, with Id, nothing at all occurs except unwrapping and rewrapping in the Id constructor. With State, the most current state gets passed from one statement to the next. With the Option monad, a statement may return None and terminate the program. With the List monad, a statement may return many results, which causes statements that follow it to potentially run multiple times, once for each result. The Monad contract doesn’t specify what is happening between the lines, only that whatever is happening satisfies the laws of associativity and identity.
   
   - Pure Functional State
   

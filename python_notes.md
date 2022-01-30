@@ -5,6 +5,7 @@
 - This is an important Python API convention: functions or methods that change an object in place should return `None` to make it clear to the caller that the object itself was changed, and no new object was created. 
 - In Python code, line breaks are ignored inside pairs of `[]`, `{}`, or `()`. So you can build multiline lists, listcomps, genexps, dictionaries and the like without using the ugly `\` line continuation escape.
 - A search like `k in my_dict.keys()` is efficient in Python 3 even for very large mappings because `dict.keys()` returns a view, which is similar to a set, and containment checks in sets are as fast as in dictionaries. Details are documented in [the “Dictionary” view objects section of the documentation](http://bit.ly/1Vm7E4q). In Python 2, `dict.keys()` returns a `list`, so our solution also works there, but it is not efficient for large dictionaries, because `k in my_list` must scan the list.
+- The only reliable way to determine whether an object is iterable is to call iter(obj).
 
 ### Sequences
 
@@ -293,48 +294,48 @@ tuple, str, and bytes
     [factorial(n) for n in range(6) if n % 2]  
       [1, 6, 120]
     ```
-  
+
     In Python 3, `map` and `filter` return generators—a form of iterator—so their direct substitute is now a generator expression (in Python 2, these functions returned lists, therefore their closest alternative is a listcomp).
-  
+
     The `reduce` function was demoted from a built-in in Python 2 to the `functools` module in Python 3. Its most common use case, summation, is better served by the `sum` built-in available since Python 2.3 was released in 2003. This is a big win in terms of readability and performance
-  
+
   - Lambdas: rarely useful in Python
-  
+
   - ##### LUNDH’S LAMBDA REFACTORING RECIPE
-  
+
     If you find a piece of code hard to understand because of a `lambda`, Fredrik Lundh suggests this refactoring procedure:
-  
+
     1. Write a comment explaining what the heck that `lambda` does.
     2. Study the comment for a while, and think of a name that captures the essence of the comment.
     3. Convert the `lambda` to a `def` statement, using that name.
     4. Remove the comment.
-  
+
     These steps are quoted from the [Functional Programming HOWTO](http://docs.python.org/3/howto/functional.html), a must read.
     
   - the Seven Flavors of Callable Objects
-  
+
     - **User-defined functions**: Created with `def` statements or `lambda` expressions.
-  
+
     - **Built-in functions**: A function implemented in C (for CPython), like `len` or `time.strftime`.
-  
+
     - **Built-in methods:** Methods implemented in C, like `dict.get`.
-  
+
     - **Methods**: Functions defined in the body of a class.
-  
+
     - **Classes**
-  
+
       When invoked, a class runs its `__new__` method to create an instance, then `__init__` to initialize it, and finally the instance is returned to the caller. Because there is no `new` operator in Python, calling a class is like calling a function. (Usually calling a class creates an instance of the same class, but other behaviors are possible by overriding `__new__`. We’ll see an example of this in [“Flexible Object Creation with __new__”](https://learning.oreilly.com/library/view/fluent-python/9781491946237/ch19.html#flexible_new_sec).)
-  
+
     - **Class instances**
-  
+
       If a class defines a `__call__` method, then its instances may be invoked as functions. See [“User-Defined Callable Types”](https://learning.oreilly.com/library/view/fluent-python/9781491946237/ch05.html#user_callables).
-  
+
     - **Generator functions**
-  
+
       Functions or methods that use the `yield` keyword. When called, generator functions return a generator object.
-  
+
   - Introspection of module example
-  
+
   - ```Python
     promos = [func for name, func in
                     inspect.getmembers(promotions, inspect.isfunction)]
@@ -344,11 +345,11 @@ tuple, str, and bytes
         """
         return max(promo(order) for promo in promos)
     ```
-  
+
   - Function Introspection 
-  
+
     - List attributes of function that don't exist in plain instances
-  
+
     - ```Python
       >>> class C: pass  #1 create a bare user defined class
       >>> obj = C()  #2 make an instance of it
@@ -357,11 +358,11 @@ tuple, str, and bytes
       ['__annotations__', '__call__', '__closure__', '__code__', '__defaults__',
       '__get__', '__globals__', '__kwdefaults__', '__name__', '__qualname__']
       ```
-  
+
   - # Packages for Functional Programming
-  
+
     - The operator module: To save you the trouble of writing trivial anonymous functions like `lambda a, b: a*b`, the `operator` module provides function equivalents for dozens of arithmetic operators. 
-  
+
     - ```python
       from functools import reduce
       from operator import mul
@@ -424,9 +425,9 @@ tuple, str, and bytes
     - 
     
   - Function Decorators and Closures
-  
+
     - Decorator 101
-  
+
       - ```python
         @decorate
         def target():
@@ -438,9 +439,9 @@ tuple, str, and bytes
         
         target = decorate(target)
         ```
-  
+
       - A key feature of decorators is that they run right after the decorated function is defined. That is usually at *import time*. **Function decorators are executed as soon as the module is imported, but the decorated functions only run when they are explicitly invoked**. This highlights the difference between what Pythonistas call *import time* and *runtime*. e.g.
-  
+
       - ```python
         registry = []  #1
         
@@ -470,9 +471,19 @@ tuple, str, and bytes
         if __name__=='__main__':
             main()  #9
         ```
-  
+
       - Variable Scope Rules: Local reference to global variable need to be declared 
-  
+
+      - The Python bytecode compiler determines when the function is defined how to fetch a variable x that appears in it, based on these rules:
+
+        - If there is a global x declaration, x comes from and is assigned to the x global variable the module.4
+        - If there is a nonlocal x declaration, x comes from and is assigned to the x local variable of the nearest surrounding function where x is defined.
+        - If x is a parameter or is assigned a value in the function body, then x is local variable.
+        - If x is referenced but is not assigned and is not a parameter:
+        - x will be looked up in the local scopes of the surrounding function bodies (nonlocal scopes);
+        - If not found in sorrounding scopes, it will be read from the module global scope;
+        - If not found in the global scope, it will be read from __builtins__.__dict__.
+
       - ```python
         b = 6
         >>> def f2(a):
@@ -488,11 +499,11 @@ tuple, str, and bytes
           File "<stdin>", line 3, in f2
         UnboundLocalError: local variable 'b' referenced before assignment
         ```
-  
+
         - The `dis` module provides an easy way to disassemble the bytecode of Python functions.
-  
+
       - Closures: a closure is a function with an extended scope that encompasses nonglobal variables referenced in the body of the function but not defined there. It does not matter whether the function is anonymous or not; what matters is that it can access nonglobal variables that are defined outside of its body
-  
+
       - ```python
         # a better version below
         def make_averager():
@@ -535,9 +546,9 @@ tuple, str, and bytes
         
             return averager
         ```
-  
+
       - Decorators (see [more](https://github.com/GrahamDumpleton/wrapt/blob/develop/blog/README.md)). [How you implemented your python decorator is wrong](https://github.com/GrahamDumpleton/wrapt/blob/develop/blog/01-how-you-implemented-your-python-decorator-is-wrong.md)
-  
+
       - ```python
         import time
         
@@ -574,7 +585,7 @@ tuple, str, and bytes
                 return result
             return clocked
         ```
-  
+
         - ```python
           class function_wrapper(object):
               def __init__(self, wrapped):
@@ -587,17 +598,17 @@ tuple, str, and bytes
           def function():
               pass
           ```
-  
+
         - Standard library decorators: functools.wraps, functools.lru_cache, functools.singledispatch
-  
+
           - lru_cache
-  
+
           - ```python
             functools.lru_cache(maxsize=128, typed=False)
             ```
-  
+
           - singledispatch: A notable quality of the `singledispatch` mechanism is that you can register specialized functions **anywhere in the system**, in any module. If you later add a module with a new user-defined type, you can easily provide a new custom function to handle that type. And you can write custom functions for classes that you did not write and can’t change.
-  
+
           - ```python
             #singledispatch creates a custom htmlize.register to bundle several functions into a generic function
             from functools import singledispatch
@@ -625,9 +636,9 @@ tuple, str, and bytes
                 inner = '</li>\n<li>'.join(htmlize(item) for item in seq)
                 return '<ul>\n<li>' + inner + '</li>\n</ul>'
             ```
-  
+
         - Stacked Decorators
-  
+
         - ```python
           @d1
           @d2
@@ -640,9 +651,9 @@ tuple, str, and bytes
           
           f = d1(d2(f))
           ```
-  
+
         - Parameterized decorators
-  
+
         - ```python
           import time
           
@@ -671,14 +682,28 @@ tuple, str, and bytes
               for i in range(3):
                   snooze(.123)
           ```
-  
-      - Object references, Mutability and Recycling
-      
+
+      - Object references, Mutability and Recycling (== and is)
+
         - To understand an assignment in Python, always read the right-hand side first: that’s where the object is created or retrieved. After that, the variable on the left is bound to the object, like a label stuck to it. Just forget about the boxes
-      
+
         - *Every object has an identity, a type and a value. An object’s identity never changes once it has been created; you may think of it as the object’s address in memory. The* `is` *operator compares the identity of two objects; the* `id()` *function returns an integer representing its identity.*
-      
-        - ```python
+
+        - While programming, we often care more about values and than object identities, so == appears more frequently than is in Python code.
+        
+        - The fact that variables hold references has many practical consequences in Python programming:
+        
+          - Simple assignment does not create copies.
+          - Augmented assignment with += or *= creates new objects if the left-hand variable is bound to an immutable object, but may modify a mutable object in place.
+          - Assigning a new value to an existing variable does not change the object previously bound to it. This is called a rebinding: the variable is now bound to a different object. If that variable was the last reference to the previous object, that object will be garbage collected.
+          - Function parameters are passed as **aliases**, which means the function may change any mutable object received as an argument. There is no way to prevent this, except making local copies or using immutable objects (e.g., passing a tuple instead of a list).
+          - ***Using mutable objects as default values for function parameters is dangerous because if the parameters are changed in place***, then the default is changed, affecting every future call that relies on the default.The fact that variables hold references has many practical consequences in Python programming:
+        
+        - Unless a method is explicitly intended to mutate an object received as argument, you should think twice before aliasing the argument object by simply assigning it to an instance variable in your class. If in doubt, make a copy (e.g. **x = list(y) instead of x=y**). Your clients will be happier. Of course, making a copy is not free: there is a cost in CPU and memory. However, an API that causes subtle bugs is usually a bigger problem than one that is a little slower or uses more resources.
+        
+        - 
+          
+          ```python
           >>> charles = {'name': 'Charles L. Dodgson', 'born': 1832}
           >>> lewis = charles  #1
           >>> lewis is charles
@@ -695,11 +720,11 @@ tuple, str, and bytes
           True
           
           ```
-      
+          
         - The `is` operator is faster than `==`, because it cannot be overloaded, so Python does not have to find and invoke special methods to evaluate it, and computing is as simple as comparing two integer IDs.
-      
+        
         - Copies are shallow by default
-      
+        
         - ```python
           >>> l1 = [3, [55, 44], (7, 8, 9)]
           >>> l2 = list(l1)  1
@@ -720,11 +745,62 @@ tuple, str, and bytes
           print('l1:', l1)
           print('l2:', l2)
           ```
-      
+        
+        - Mutable Types as Parameter Defaults: Bad Idea
+        
+          - ## Defensive Programming with Mutable Parameters
+        
+          - Defensive Programming with Mutable Parameters
+          
+          - Unless a method is explicitly intended to mutate an object received as argument, you should think twice before aliasing the argument object by simply assigning it to an instance variable in your class. If in doubt, make a copy. Your clients will often be happier.
+          
+        - ```python
+          class HauntedBus:
+              """A bus model haunted by ghost passengers"""
+          
+              def __init__(self, passengers=[]):  1
+                  self.passengers = passengers  2
+          
+              def pick(self, name):
+                  self.passengers.append(name)  3
+          
+              def drop(self, name):
+                  self.passengers.remove(name)
+                  
+          >>> bus1 = HauntedBus(['Alice', 'Bill'])
+          >>> bus1.passengers
+          ['Alice', 'Bill']
+          >>> bus1.pick('Charlie')
+          >>> bus1.drop('Alice')
+          >>> bus1.passengers  1
+          ['Bill', 'Charlie']
+          >>> bus2 = HauntedBus()  2
+          >>> bus2.pick('Carrie')
+          >>> bus2.passengers
+          ['Carrie']
+          >>> bus3 = HauntedBus()  3
+          >>> bus3.passengers  4
+          ['Carrie']
+          >>> bus3.pick('Dave')
+          >>> bus2.passengers  5
+          ['Carrie', 'Dave']
+          >>> bus2.passengers is bus3.passengers  6
+          True
+          >>> bus1.passengers  7
+          ['Bill', 'Charlie']
+          
+          >>> dir(HauntedBus.__init__)  # doctest: +ELLIPSIS
+          ['__annotations__', '__call__', ..., '__defaults__', ...]
+          >>> HauntedBus.__init__.__defaults__
+          (['Carrie', 'Dave'],)
+          >>> HauntedBus.__init__.__defaults__[0] is bus2.passengers
+          True
+          ```
+        
         - Function Parameters as References
-      
+        
           - The only mode of parameter passing in Python is *call by sharing*. That is the same mode used in most OO languages, including Ruby, SmallTalk, and Java (this applies to Java reference types; primitive types use call by value). Call by sharing means that each formal parameter of the function gets a copy of each reference in the arguments. In other words, the parameters inside the function become aliases of the actual arguments.
-      
+        
           - ```python
             >>> def f(a, b):
             ...     a += b
@@ -749,64 +825,17 @@ tuple, str, and bytes
             >>> t, u
             ((10, 20), (30, 40))
             ```
-      
-          - ## Mutable Types as Parameter Defaults: Bad Idea
-      
-            - ## Defensive Programming with Mutable Parameters
-      
-            - Unless a method is explicitly intended to mutate an object received as argument, you should think twice before aliasing the argument object by simply assigning it to an instance variable in your class. If in doubt, make a copy. Your clients will often be happier.
-      
-          - ```python
-            class HauntedBus:
-                """A bus model haunted by ghost passengers"""
-            
-                def __init__(self, passengers=[]):  1
-                    self.passengers = passengers  2
-            
-                def pick(self, name):
-                    self.passengers.append(name)  3
-            
-                def drop(self, name):
-                    self.passengers.remove(name)
-                    
-            >>> bus1 = HauntedBus(['Alice', 'Bill'])
-            >>> bus1.passengers
-            ['Alice', 'Bill']
-            >>> bus1.pick('Charlie')
-            >>> bus1.drop('Alice')
-            >>> bus1.passengers  1
-            ['Bill', 'Charlie']
-            >>> bus2 = HauntedBus()  2
-            >>> bus2.pick('Carrie')
-            >>> bus2.passengers
-            ['Carrie']
-            >>> bus3 = HauntedBus()  3
-            >>> bus3.passengers  4
-            ['Carrie']
-            >>> bus3.pick('Dave')
-            >>> bus2.passengers  5
-            ['Carrie', 'Dave']
-            >>> bus2.passengers is bus3.passengers  6
-            True
-            >>> bus1.passengers  7
-            ['Bill', 'Charlie']
-            
-            >>> dir(HauntedBus.__init__)  # doctest: +ELLIPSIS
-            ['__annotations__', '__call__', ..., '__defaults__', ...]
-            >>> HauntedBus.__init__.__defaults__
-            (['Carrie', 'Dave'],)
-            >>> HauntedBus.__init__.__defaults__[0] is bus2.passengers
-            True
-            ```
-      
-          - # classmethod Versus staticmethod
-      
+        
+          - Given the variety of existing callable types in Python, the safest way to determine whether an object is callable is to use the callable() built-in:
+        
+          - classmethod Versus staticmethod
+        
             The `classmethod` decorator is not mentioned in the Python tutorial, and neither is `staticmethod`. Anyone who has learned OO in Java may wonder why Python has both of these decorators and not just one of them.
-      
+        
             Let’s start with `classmethod`. [Example 9-3](https://learning.oreilly.com/library/view/fluent-python/9781491946237/ch09.html#ex_vector2d_v1) shows its use: to define a method that operates on the class and not on instances. `classmethod` changes the way the method is called, so it receives the class itself as the first argument, instead of an instance. Its most common use is for alternative constructors, like `frombytes` in [Example 9-3](https://learning.oreilly.com/library/view/fluent-python/9781491946237/ch09.html#ex_vector2d_v1). Note how the last line of `frombytes` actually uses the `cls` argument by invoking it to build a new instance: `cls(*memv)`. By convention, the first parameter of a class method should be named `cls` (but Python doesn’t care how it’s named).
-      
+        
             In contrast, the `staticmethod` decorator changes a method so that it receives no special first argument. In essence, a static method is just like a plain function that happens to live in a class body, instead of being defined at the module level. [Example 9-4](https://learning.oreilly.com/library/view/fluent-python/9781491946237/ch09.html#ex_class_staticmethod) contrasts the operation of `classmethod` and `staticmethod`.
-      
+        
             ```python
             >>> class Demo:
             ...     @classmethod
@@ -825,7 +854,7 @@ tuple, str, and bytes
             >>> Demo.statmeth('spam')
             ('spam',)
             ```
-      
+        
         - The `__getattr__` method is invoked by the interpreter when attribute lookup fails. In simple terms, given the expression `my_obj.x`, Python checks if the `my_obj` instance has an attribute named `x`; if not, the search goes to the class (`my_obj.__class__`), and then up the inheritance graph.[2](https://learning.oreilly.com/library/view/fluent-python/9781491946237/ch10.html#idm139636514050864) If the `x` attribute is not found, then the `__getattr__` method defined in the class of `my_obj` is called with `self` and the name of the attribute as a string (e.g., `'x'`).
         
         - The awesome zip: 
@@ -892,6 +921,58 @@ tuple, str, and bytes
     - A common cause of errors in building iterables and iterators is to confuse the two. To be clear: iterables have an `__iter__` method that instantiates a new iterator every time. Iterators implement a `__next__` method that returns individual items, and an `__iter__` method that returns `self`.
     - An iterable should never act as an iterator over itself. In other words, iterables must implement `__iter__`, but not `__next__`.
     - On the other hand, iterators should always be iterable. An iterator’s `__iter__` should just return `self`.
+
+Dataclasses
+
+ - 3 ways to do it
+   	- **collections.namedtuple**
+   	- **typing.NamedTuple**: Classes built by typing.NamedTuple don’t have any methods beyond those that collections.namedtuple also generates—and those that are inherited from tuple. The only difference is the presence of the __annotations__ class attribute—which Python completely ignores at runtime.
+   	- **dataclasses.dataclass**
+
+```python
+class DemoPlainClass:
+    a: int     ##### see note below!!!!        
+    b: float = 1.1   
+    c = 'spam'       
+
+# a becomes an entry in __annotations__, but is otherwise discarded: no attribute named a is created in the class.
+# b is saved as an annotation, and also becomes a class attribute with value 1.1.
+# c is just a plain old class attribute, not an annotation.
+
+#################################
+
+import typing
+
+class DemoNTClass(typing.NamedTuple):
+    a: int           
+    b: float = 1.1   
+    c = 'spam'       
+    
+# a becomes an annotation and also an instance attribute.
+# b is another annotation, and also becomes an instance attribute with default value 1.1.
+# c is just a plain old class attribute; no annotation will refer to it.
+
+#################################
+
+
+from dataclasses import dataclass
+
+@dataclass
+class DemoDataClass:
+    a: int           
+    b: float = 1.1   
+    c = 'spam'       
+    
+# a becomes an annotation and also an *instance* attribute controlled by a descriptor.
+# b is another annotation, and also becomes an *instance* attribute with a descriptor and a default value 1.1.
+# c is just a plain old *class* attribute; no annotation will refer to it.
+
+# !!!! the a attribute will only exist in instances of DemoDataClass. It will be a public attribute that we can get and set, unless the class is frozen. But b and c exist as class attributes, with b holding the default value for the b instance attribute, while c is just a class attribute that will not be bound to the instances.
+```
+
+
+
+![image-20210924144702647](/Users/z013lgl/Library/Application Support/typora-user-images/image-20210924144702647.png)
 
 ### Package and Import
 

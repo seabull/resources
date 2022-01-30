@@ -12,6 +12,44 @@
 - [Code is Law in Chinese](https://mp.weixin.qq.com/s/a-tUQSy5zT3qhd8mBy2HfA)
 - [CI friendly git repos](https://www.atlassian.com/continuous-delivery/ci-friendly-git-repos)
 
+### Security
+
+- [semgrep](https://semgrep.dev/)
+
+- [owasp pytm](https://owasp.org/www-project-pytm/)
+
+- OWASP API Security Project
+
+  https://owasp.org/www-project-api-security/
+
+  LINDDUN privacy engineering
+
+  https://www.linddun.org/
+
+  Privacy by Design - The 7 Foundational Principles
+
+  https://iapp.org/resources/article/privacy-by-design-the-7-foundational-principles/
+
+  The State of Open Source Security
+
+  https://snyk.io/open-source-security/
+
+  npm and the Future of JavaScript
+
+  https://www.infoq.com/presentations/npm-javascript-users/
+
+  Semgrep
+
+  https://github.com/returntocorp/semgrep
+
+  OWASP pytm
+
+  https://owasp.org/www-project-pytm/
+
+  OWASP SEDATED
+
+  https://owasp.org/www-project-sedated/
+
 ### Git/Github
 
 - [pre-commit](https://pre-commit.com)
@@ -210,13 +248,13 @@
     --conf spark.sql.ui.retainedExecutions=100 
     --conf spark.streaming.ui.retainedBatches=10000 
     --conf spark.ui.retainedDeadExecutors=100 
-  --conf spark.rpc.netty.dispatcher.numThreads=2 
+    --conf spark.rpc.netty.dispatcher.numThreads=2 
     --conf spark.eventLog.enabled=false 
     --conf spark.history.retainedApplications=2 
     --conf spark.history.fs.cleaner.enabled=true 
     --conf spark.history.fs.cleaner.maxAge=2d 
     --class "$APPCLASS" "$APPFILE" >> "/var/log/${APPCLASS}.log" 2>&1
-  --conf  spark.extraListeners=org.apache.spark.scheduler.StatsReportListener
+    --conf  spark.extraListeners=org.apache.spark.scheduler.StatsReportListener
     ```
   
   - some config
@@ -486,7 +524,39 @@
 - Apache Beam
 
   - [Data processing job using BEAM](https://www.talend.com/blog/2018/04/23/how-to-develop-a-data-processing-job-using-apache-beam-2/)  [Part2](https://www.talend.com/blog/2018/08/07/developing-data-processing-job-using-apache-beam-streaming-pipeline/)
-
   - 
+  
+- Adhoc
 
-    
+  ```mermaid
+  graph TB
+  A[Parse Command Line Arguemnts and Load Config file] -->B[Execute Pipeline Logic, Send Slack Msg, Perf Metrics Mgr and Cached metrics]
+      B --> Z[Load Table concurrently]
+      Z --> C[Load SF Hive table]
+      Z --> D[Load CMP Hive table]
+      Z --> E[Load PbR Hive table]
+      C --> F[Business Logic and Filters]
+      D --> G[Decorate with Business Logic/Filters]
+      E --> H[Decorate with Business Logic/Filters]
+      F --> I[Sync All DataFrames Loaded]
+      G --> I
+      H --> I
+      I --> J[Write to Hive Table]
+      J --> K[Post Process, Send Cached Perf Metrics]
+  ```
+  
+  ```mermaid
+  graph TB
+  A[Farscape Source]-->B[Mobile Orders]
+  B-->C[Export to HDFS]
+  C-->D[Push to BigRED HDFS]
+  D-->E[Create Done Flag]
+  E-->F[Success Email]
+  B-->G[Failure Email]
+  C-->G
+  D-->G
+  E-->G
+  ```
+  
+  
+

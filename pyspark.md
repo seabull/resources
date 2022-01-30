@@ -572,6 +572,7 @@ sum(*cols) -
 
   - look for large variance in memory usage within a job
   - executor missing heartbeat
+  - check data skew in a dataframe: **df.groupBy(spark_partition_id()).count().collect()**
   - check partition sizes of RDD while debugging to confirm
 
   ```Scala
